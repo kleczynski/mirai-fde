@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, CheckCheck, ChevronDown, Download, Pencil, Quote } from 'lucide-react';
+import { Check, CheckCheck, ChevronDown, Pencil, Quote } from 'lucide-react';
 import { reviewFinding, type DiscoveryResult, type Finding } from '../domain/contract';
 type GroupKey = 'participantContext' | 'painPoints' | 'workflows' | 'tools' | 'constraints' | 'automationOpportunities';
 const groups: [GroupKey, string][] = [['participantContext', 'Twoja codzienność i cel'], ['painPoints', 'To, co warto uprościć'], ['workflows', 'Jak wykonujesz swoją pracę'], ['tools', 'Co pomaga Ci w pracy'], ['constraints', 'Granice i ograniczenia'], ['automationOpportunities', 'Pomysły do sprawdzenia']];

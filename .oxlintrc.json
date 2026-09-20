@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc"
+  ],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {},
+  "env": {
+    "builtin": true
+  },
+  // Vendored, read-only snapshot from Figma Make (see README: "Źródło zachowano
+  // w docs/figma-reference"). We don't author or maintain this code, so it's not
+  // linted.
+  "ignorePatterns": [
+    "docs/figma-reference/**"
+  ],
+  "overrides": [
+    {
+      // `then` here is a Given/When/Then BDD acceptance-criteria field on a zod
+      // schema (services/brief-studio/src/domain/contract.ts), not a Promise
+      // thenable. unicorn/no-thenable is a correctness rule for accidental
+      // thenable objects; it doesn't apply to this plain data shape.
+      "files": ["services/brief-studio/**"],
+      "rules": {
+        "unicorn/no-thenable": "off"
+      }
+    }
+  ]
+}
