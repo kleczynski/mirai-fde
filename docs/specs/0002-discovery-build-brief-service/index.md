@@ -123,7 +123,3 @@ Kalibracja 2026-09-20: trzy rzeczywiste przebiegi pokazały, że `gpt-4.1-mini` 
 ## Rationale
 
 Pełne uzasadnienie, rozważane opcje i przykład Julki (korepetytorka, Revolut, Kalendarz Google) są w `rationale.md`. Sugerowana, niewiążąca kolejność budowy (ta decyzja celowo jej nie zawiera) jest w `build-plan.md`.
-
-### Korekta wdrożenia: limit funkcji Vercel (2026-09-20)
-
-Pierwszy deploy z nowym proxy dał 13 funkcji i został odrzucony przez limit 12 funkcji planu Hobby. Wybrano wspólny adapter `api/admin/[route].ts` dla istniejących tras admina: URL-e, metody i autoryzacja pozostają takie same, a Vercel buduje jedną funkcję admina. Osobne moduły domenowe i Worker pozostają niezależne. Alternatywa — płatny upgrade planu — nie daje korzyści przy tej skali. Adapter ma zamkniętą mapę tras i odrzuca nieznane ścieżki; budżet czasu wynosi 30 sekund z powodu proxy z timeoutem 20 sekund. Zmiana jest odwracalna, nie rozszerza uprawnień ani retencji. Test adaptera sprawdza metody, brak dostępu bez JWT i nieznane trasy; build Vercel potwierdza liczbę funkcji.

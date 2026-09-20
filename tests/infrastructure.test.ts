@@ -12,7 +12,7 @@ describe('production infrastructure', () => {
     expect(config.regions).toEqual(['fra1']);
     expect(config.functions['api/extract.ts'].maxDuration).toBeLessThanOrEqual(60);
     expect(config.functions['api/voice/token.ts'].maxDuration).toBeLessThanOrEqual(30);
-    for (const path of ['api/config.ts', 'api/extract.ts', 'api/voice/token.ts', 'api/admin/[route].ts']) {
+    for (const path of ['api/config.ts', 'api/extract.ts', 'api/voice/token.ts', 'api/admin/sessions.ts', 'api/admin/session.ts', 'api/admin/session-trace.ts', 'api/admin/voice-health.ts', 'api/admin/delete-session.ts']) {
       expect(existsSync(new URL(path, root)), `${path} must be deployed`).toBe(true);
     }
   });
