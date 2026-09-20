@@ -3,6 +3,7 @@ import { CheckCircle2, ChevronLeft, ChevronRight, Download, LoaderCircle, LogOut
 import type { DiscoveryResult, InterviewSession, Turn } from '../domain/contract';
 import { Captcha } from '../persistence/Captcha';
 import { captchaRequired, getCaptchaToken, supabase } from '../persistence/repository';
+import { BriefStudioPanel } from './BriefStudioPanel';
 import './admin.css';
 import './admin-invitations.css';
 
@@ -103,6 +104,7 @@ export function AdminControlPlane() {
         <p className="admin-meta">ID: {detail.session.id} · {detail.session.mode} · wygasa {date(detail.session.expiresAt)}</p>
         <div className="admin-detail-actions"><button className="outline-button" disabled={busy} onClick={() => void exportPackage()}><Download size={16}/> Eksport paczki</button><button className="danger-button" disabled={busy} onClick={() => setDeleteId(detail.session.id)}><Trash2 size={16}/> Usuń sesję</button></div>
         <section className="admin-card"><h3>Ocena jakości</h3>{evaluation ? <><p>Wersja oceny: {evaluation.evaluatorVersion}, wynik {evaluation.status}, wejściowe tury: {evaluation.inputTurnIds.length}.</p>{evaluation.signals.length ? <ul>{evaluation.signals.map(signal => <li key={signal.code + signal.turnIds.join()}>{signal.code}: {signal.evidence.join(' ') || 'brak cytatu dowodowego'}{signal.limitation ? ' (' + signal.limitation + ')' : ''}</li>)}</ul> : <p>Ocena nie zawiera flag.</p>}</> : <p>Brak wersjonowanej oceny semantycznej.</p>}</section>
+        <BriefStudioPanel key={detail.session.id} sessionId={detail.session.id} eligible={detail.session.status === 'completed' && Boolean(detail.session.result)} request={request}/>
         <Report title="Raport utrwalony w sesji" report={detail.session.result}/><Report title="Oryginalny wynik ekstrakcji" report={detail.session.modelResult}/>
         <Transcript turns={detail.session.turns} evaluation={evaluation} notes={detail.operatorNotes ?? []} onNote={(turnId, label, note) => void saveNote(turnId, label, note)}/><Runs runs={detail.runs} onTrace={runId => void loadTrace(runId)} busy={busy}/>{trace && <Trace trace={trace}/>}
       </> : <p>Wybierz rozmowę, aby zobaczyć raport, transkrypcję i dane monitoringu.</p>}</div>

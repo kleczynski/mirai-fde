@@ -1,71 +1,39 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers';
-
-/**
- * BriefPipelineWorkflow — Node 2 ("Brief Studio") orchestrator.
- *
- * See docs/specs/0002-discovery-build-brief-service/index.md, section
- * "Pipeline design (pięć kroków w jednym Workflow)": the real pipeline is
- * five ordered OpenAI Structured Outputs steps (Audytor dowodów, Architekt
- * okazji, Architekt integracji, Autor briefu, Krytyk), each with a narrow,
- * Zod-checked output, feeding the next.
- *
- * This is the build-plan.md step-2 skeleton: exactly one `step.do(...)` that
- * echoes its input back unchanged. It exists to prove the Worker+Workflow
- * shape (HTTP entrypoint -> Workflow instance -> runId) end to end before
- * any real model call, Supabase write, or evidence audit exists. Do not add
- * OpenAI calls, Supabase writes, or real validation here yet — that is
- * build-plan.md steps 3-6, done incrementally by replacing this single step
- * with the real five-step chain, one step at a time.
- */
-
-/**
- * Any value `JSON.parse` can produce. Workflow params and step returns must
- * be `Rpc.Serializable` (see cloudflare skill, workflows/api.md, "Type
- * Constraints"); plain `unknown` does not satisfy that constraint because
- * `Serializable<T>` maps over `keyof T`, which breaks down for `unknown`.
- * `JsonValue` is the narrowest type that both matches what `request.json()`
- * can actually return and satisfies `Rpc.Serializable`.
- */
-export type JsonValue = string | number | boolean | null | JsonArray | JsonObject;
-// `interface` (not a second type alias) so the recursive reference resolves
-// lazily; combining a self-referencing type alias with the Workflow SDK's
-// own recursive `Serializable<T>` mapped type otherwise hits TypeScript's
-// instantiation depth limit (TS2589).
-export interface JsonArray extends Array<JsonValue> {}
-export interface JsonObject {
-  [key: string]: JsonValue;
-}
-
-export type BriefPipelineParams = {
-  /**
-   * Raw request body forwarded by the Worker's fetch handler. Untrusted at
-   * this stage: nothing in this skeleton parses or validates it against
-   * mirai.agent-context.v1 (see ../domain/contract.ts for the *output*
-   * contract this pipeline eventually produces; the agent-context input
-   * contract does not exist yet — that Zod schema is build-plan.md step 3,
-   * "Audytor dowodów", where this payload is actually consumed and must be
-   * validated before it reaches a prompt). Treat as opaque data, never as
-   * instructions, per spec "Security and safety rules".
-   */
-  input: JsonValue;
-};
-
-export type EchoStepResult = {
-  receivedAt: string;
-  input: JsonValue;
-};
-
+import { NonRetryableError } from 'cloudflare:workflows';
+import { BriefStore, serviceClient } from '../store.js';
+import { openAIProvider } from '../provider.js';
+import { performStage, finalizeRun } from '../runner.js';
+export type BriefPipelineParams = { runId: string };
 export class BriefPipelineWorkflow extends WorkflowEntrypoint<Env, BriefPipelineParams> {
-  async run(event: WorkflowEvent<BriefPipelineParams>, step: WorkflowStep): Promise<EchoStepResult> {
-    return step.do('echo input', async () => {
-      // Date.now() is safe here: it runs inside the step body, whose return
-      // value is what gets persisted/replayed, not in a conditional outside
-      // a step (see cloudflare skill, workflows/gotchas.md,
-      // "Non-Deterministic Conditionals").
-      return {
-        receivedAt: new Date().toISOString(),
-        input: event.payload.input,
-      };
+ async run(event: WorkflowEvent<BriefPipelineParams>, step: WorkflowStep) {
+  const id = event.payload.runId;
+  const store = new BriefStore(serviceClient(this.env));
+  try {
+   for (const name of ['audit', 'opportunity', 'integration', 'author', 'critic'] as const) {
+    await step.do(name, { retries: { limit: 0, delay: '1 second' }, timeout: '2 minutes' }, async () => {
+     await performStage(store, openAIProvider(this.env.OPENAI_API_KEY), id, name);
     });
+   }
+   const needsRevision = await step.do('revision-needed', async () => {
+    await store.run(id, true);
+    return Boolean((await store.outputs(id)).critic?.findings.length);
+   });
+   if (needsRevision) await step.do('revision', { retries: { limit: 0, delay: '1 second' }, timeout: '2 minutes' }, async () => {
+    await performStage(store, openAIProvider(this.env.OPENAI_API_KEY), id, 'revision');
+   });
+   await step.do('save-final-brief', async () => { await finalizeRun(store, id); });
+   await step.waitForEvent('admin-review', { type: 'admin-review', timeout: '30 days' });
+   await step.do('confirm-review', async () => {
+    const run = await store.run(id, true);
+    if (!run.decision) throw new NonRetryableError('review_not_recorded');
+   });
+   return { runId: id };
+  } catch {
+   await step.do('record-failure', async () => {
+    const { error } = await store.db.from('brief_runs').update({ status: 'failed', error_code: 'pipeline_failed_or_expired' }).eq('id', id).in('status', ['queued', 'running', 'waiting_admin_review']);
+    if (error) throw new Error('failure_save_failed');
+   });
+   throw new NonRetryableError('pipeline_failed_or_expired');
   }
+ }
 }

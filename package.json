@@ -22,12 +22,17 @@
     "schema:build-brief": "tsx scripts/export-build-brief-schema.ts",
     "check": "npm run lint && npm test && npm run build",
     "test:infra": "vitest run tests/infrastructure.test.ts",
-    "test:brief-studio": "vitest run services/brief-studio/tests/contract.test.ts",
+    "test:brief-studio": "vitest run services/brief-studio/tests --exclude '**/*.integration.test.ts'",
+    "test:brief-integration": "vitest run services/brief-studio/tests/http.integration.test.ts",
+    "test:brief-e2e": "playwright test --config playwright.brief.config.ts",
     "dev:brief-studio": "npm run dev --workspace=services/brief-studio",
     "types:brief-studio": "npm run types --workspace=services/brief-studio",
     "typecheck:brief-studio": "npm run typecheck --workspace=services/brief-studio",
     "elevenlabs:configure": "tsx scripts/configure-elevenlabs.ts",
-    "eval:voice": "tsx scripts/voice-evals.ts"
+    "eval:voice": "tsx scripts/voice-evals.ts",
+    "eval:brief": "tsx scripts/brief-evals.ts",
+    "eval:brief:live": "tsx scripts/brief-evals.ts --live",
+    "build:brief-studio": "npm run typecheck:brief-studio && npm exec --workspace=services/brief-studio -- wrangler deploy --dry-run"
   },
   "dependencies": {
     "@elevenlabs/client": "^0.15.0",

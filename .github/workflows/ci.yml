@@ -39,6 +39,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run typecheck:brief-studio
 
   unit-test:
     runs-on: ubuntu-latest
@@ -51,6 +52,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: npm run test:brief-studio
 
   build:
     runs-on: ubuntu-latest
@@ -63,6 +65,50 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - run: npm run build:brief-studio
+
+  brief-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      # Replays genuine provider evidence and checks source/judge hashes.
+      # No API key or paid call in pull-request CI.
+      - run: npm run eval:brief
+
+  brief-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [lint, typecheck, unit-test, build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start isolated local Supabase
+        run: |
+          mkdir -p .local/brief-studio
+          npx supabase@2.117.0 start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor > .local/brief-studio/start.log 2>&1
+          npx supabase@2.117.0 status -o json > .local/brief-studio/local-supabase.json
+          chmod 600 .local/brief-studio/local-supabase.json
+      - run: npm run test:brief-integration
+      - run: npm run test:brief-e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: brief-panel-evidence
+          path: .local/brief-studio/panel-*.png
+      - name: Stop local services
+        if: always()
+        run: npx supabase@2.117.0 stop --no-backup
 
   e2e:
     runs-on: ubuntu-latest
@@ -95,10 +141,48 @@ jobs:
   # reaches production — this is the single, sole path to `vercel --prod`.
   # The Vercel project intentionally has no Git integration connected
   # (see docs/PRODUCTION.md) precisely so this workflow is the only trigger.
+  deploy-brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [e2e, brief-e2e, brief-quality]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MIRAI_ADMIN_EMAILS: ${{ secrets.MIRAI_ADMIN_EMAILS }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      BRIEF_STUDIO_URL: ${{ vars.BRIEF_STUDIO_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Verify dedicated deployment target and configuration
+        run: node scripts/check-brief-deploy.mjs
+      - name: Apply additive migrations after all gates
+        run: npx supabase@2.117.0 db push --project-ref "$SUPABASE_PROJECT_REF" --skip-vault --yes
+      - name: Deploy Worker and runtime secrets together
+        run: |
+          node scripts/brief-runtime-secrets.mjs
+          npm exec --workspace=services/brief-studio -- wrangler deploy --secrets-file "$RUNNER_TEMP/brief-runtime-secrets.json"
+      - name: Verify Worker health
+        run: curl --fail --retry 3 --retry-delay 5 "$BRIEF_STUDIO_URL/health"
+      - name: Remove temporary secret file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/brief-runtime-secrets.json"
+
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [e2e]
+    needs: [deploy-brief]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
     steps:
@@ -108,6 +192,16 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+      - name: Configure Brief Studio admin proxy
+        run: |
+          printf '%s' "$BRIEF_STUDIO_URL" | npx vercel@59.1.4 env add BRIEF_STUDIO_URL production --force --yes --token="$VERCEL_TOKEN"
+          printf '%s' "$MIRAI_ADMIN_EMAILS" | npx vercel@59.1.4 env add MIRAI_ADMIN_EMAILS production --force --yes --sensitive --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          BRIEF_STUDIO_URL: ${{ vars.BRIEF_STUDIO_URL }}
+          MIRAI_ADMIN_EMAILS: ${{ secrets.MIRAI_ADMIN_EMAILS }}
       - name: Pull Vercel project settings
         run: npx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
         env:

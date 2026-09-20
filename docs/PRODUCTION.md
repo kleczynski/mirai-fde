@@ -85,7 +85,7 @@ Vercel API pokazuje `link: null`). Jedyną drogą na produkcję jest workflow
    (`vite build`).
 2. `e2e` (Playwright, desktop + mobile) startuje dopiero gdy wszystkie cztery
    powyższe przejdą (`needs:`).
-3. `deploy` startuje dopiero gdy `e2e` przejdzie, i **tylko** na `push` do
+3. `deploy` startuje dopiero po `deploy-brief` (opis poniżej), i **tylko** na `push` do
    `main` (nigdy na PR). Kroki: `vercel pull` → `vercel build --prod` →
    `vercel deploy --prebuilt --prod`.
 
@@ -108,6 +108,20 @@ wyłącznie jako awaryjna ścieżka break-glass, gdy CI jest niedostępne — ni
 używaj go w normalnym cyklu pracy, bo omija wszystkie checki.
 
 ## Kryteria odbioru
+
+### Brief Studio (Node 2)
+
+Worker: `https://mirai-brief-studio.kleczynski11312.workers.dev`. Workflow: `mirai-brief-studio-pipeline`. Ten sam dedykowany Supabase co Node 1, nowe tabele `brief_*`; żadnych integracji z kontami klienta.
+
+CI rozszerza typecheck/unit/build o Worker. `brief-quality` odtwarza autentyczny wynik OpenAI z `services/brief-studio/tests/evals/julka.live.json`, porównuje hashe źródeł oraz sprawdza ocenę końcowego briefu i kontrolę negatywną. Nie wykonuje płatnych wywołań. `brief-e2e` uruchamia lokalny Supabase, testuje HTTP/Auth/RLS/wersje oraz panel z zapisanymi odpowiedziami modelu. Zrzuty panelu są artefaktem Actions.
+
+`deploy-brief` ma `needs: [e2e, brief-e2e, brief-quality]`, działa tylko na push main i najpierw stosuje migracje, potem wdraża Workera z sekretami wersji, następnie sprawdza `/health`. `deploy` Vercela zależy od niego i konfiguruje proxy admina. Błąd migracji/deployu blokuje dalszy rollout. Migracje są addytywne; nie cofaj ich przez kasowanie tabel. Cofnięcie kodu również przeprowadź przez CI.
+
+Sekrety Actions: `OPENAI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_TOKEN`, `MIRAI_ADMIN_EMAILS` oraz istniejące sekrety Vercel. Zmienne Actions: `SUPABASE_PROJECT_REF`, `SUPABASE_URL`, `CLOUDFLARE_ACCOUNT_ID`, `BRIEF_STUDIO_URL`. Token Cloudflare wymaga dostępu do Workers i Workflows na wskazanym koncie. Wartości sekretów trafiają wyłącznie do tymczasowego pliku CI i bindingów Workera.
+
+Lokalnie: `npm run test:brief-studio`, `npm run eval:brief`, `npm run build:brief-studio`. Dla integracji uruchom lokalny Supabase, zapisz `supabase status -o json` prywatnie do `.local/brief-studio/local-supabase.json`, następnie `npm run test:brief-integration` i `npm run test:brief-e2e`. Używają lokalnej bazy, tworzą fikcyjne konta i usuwają je po teście. Lokalny reset bazy wolno wykonywać wyłącznie dla tego środowiska testowego. Raportów status z kluczami nie publikuj.
+
+Przy awarii/nieznanym wyniku OpenAI koszt pozostaje zarezerwowany. Ponawiaj start z tym samym requestId, nie twórz kolejnego płatnego uruchomienia w ciemno. Decyzja review zapisana w DB jest wiążąca; przy błędzie powiadomienia Workflow panel umożliwia ponowienie samego powiadomienia. Zmiana/wygaśnięcie/usunięcie źródła blokuje dalszy eksport. Nie wznawiaj płatnego kroku przez reset jego rezerwacji.
 
 - dwa anonimowe konta nie mogą czytać, zmieniać ani usuwać swoich danych nawzajem;
 - bez JWT endpointy głosu i ekstrakcji zwracają `401`, a obca/nieistniejąca sesja nie ujawnia treści;
