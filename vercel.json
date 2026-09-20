@@ -1,7 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
-  "regions": ["fra1"],
+  "regions": [
+    "fra1"
+  ],
   "functions": {
     "api/extract.ts": {
       "maxDuration": 60
@@ -9,11 +11,15 @@
     "api/voice/token.ts": {
       "maxDuration": 30
     },
-    "api/admin/delete-session.ts": {
-      "maxDuration": 15
+    "api/admin/[route].ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
+    {
+      "source": "/api/admin/:route",
+      "destination": "/api/admin/[route]?route=:route"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
