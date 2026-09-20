@@ -74,6 +74,39 @@ vercel deploy --prebuilt
 
 Po sprawdzeniu Preview promuj dokładnie ten sam artefakt poleceniem `vercel promote <preview-url>`. Migracje produkcyjne wykonaj przed promocją, gdy aplikacja nadal jest kompatybilna ze starym i nowym schematem.
 
+## Deploy (CI/CD — jedyna droga na produkcję)
+
+Projekt Vercel **celowo nie ma podpiętego Git integration** (`vercel project ls` /
+Vercel API pokazuje `link: null`). Jedyną drogą na produkcję jest workflow
+`.github/workflows/ci.yml` w GitHub Actions:
+
+1. Push/PR uruchamia równolegle cztery joby: `lint` (oxlint), `typecheck`
+   (`tsc --noEmit`), `unit-test` (vitest, pełny zestaw z `npm test`) i `build`
+   (`vite build`).
+2. `e2e` (Playwright, desktop + mobile) startuje dopiero gdy wszystkie cztery
+   powyższe przejdą (`needs:`).
+3. `deploy` startuje dopiero gdy `e2e` przejdzie, i **tylko** na `push` do
+   `main` (nigdy na PR). Kroki: `vercel pull` → `vercel build --prod` →
+   `vercel deploy --prebuilt --prod`.
+
+Efekt: kod, który nie przejdzie lintu, typów, testów jednostkowych, builda albo
+e2e, nigdy nie dotrze do `deploy` — nawet przy bezpośrednim pushu na `main` bez
+PR-a. To jedyny guardrail; **nie włączaj** Git integration w dashboardzie
+Vercela, bo stworzyłoby to drugą, niekontrolowaną ścieżkę deployu, która
+ominie te checki.
+
+Wymagane sekrety w GitHub (Settings → Secrets and variables → Actions):
+
+| Sekret | Wartość | Uwagi |
+| --- | --- | --- |
+| `VERCEL_TOKEN` | token wygenerowany na <https://vercel.com/account/tokens>, scope: zespół `iclevers-projects` | jedyny prawdziwy sekret; nigdy nie commituj go, nie wklejaj do kodu |
+| `VERCEL_ORG_ID` | `team_UL1UmYHSeHsoCoKVuTIDcODj` | z `.vercel/project.json`, nie jest tajne, ale trzymane jako secret dla spójności |
+| `VERCEL_PROJECT_ID` | `prj_LpPaWf0xFR11VNuvA0GG8y43weQq` | jw. |
+
+Manualny deploy z lokalnej maszyny (`vercel --prod` z sekcji wyżej) zostaje
+wyłącznie jako awaryjna ścieżka break-glass, gdy CI jest niedostępne — nie
+używaj go w normalnym cyklu pracy, bo omija wszystkie checki.
+
 ## Kryteria odbioru
 
 - dwa anonimowe konta nie mogą czytać, zmieniać ani usuwać swoich danych nawzajem;
