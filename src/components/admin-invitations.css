@@ -1,0 +1,17 @@
+.admin-invitations{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(300px,1.2fr);gap:20px 42px;margin-top:36px;padding:32px;border:1px solid var(--line);background:linear-gradient(130deg,#f4f8f4,#e9f0ea)}
+.admin-invitations h2{font-size:24px;line-height:1.2;margin:10px 0 12px;max-width:370px}
+.admin-invitations p{max-width:430px;line-height:1.65}
+.admin-invitation-form{display:grid;grid-template-columns:1fr 1fr;align-content:center;gap:12px}
+.admin-invitation-form label{display:flex;flex-direction:column;gap:7px;font-size:11px;color:var(--muted)}
+.admin-invitation-form input,.admin-created-link input{width:100%;min-width:0;border:1px solid var(--line);border-radius:2px;background:#fff;padding:12px 13px;color:var(--ink);font:inherit;font-size:13px}
+.admin-invitation-form .primary-button{grid-column:1/-1;justify-self:start;min-height:42px;padding:10px 18px}
+.admin-created-link{grid-column:1/-1;padding:18px 20px;background:#fff;border-left:3px solid var(--sage)}
+.admin-created-link strong{font-size:14px}.admin-created-link p{margin:6px 0 12px}
+.admin-created-link>div{display:flex;gap:10px}.admin-created-link input{flex:1}.admin-created-link button{white-space:nowrap;padding:8px 15px}
+.admin-invitation-list{grid-column:1/-1;border-top:1px solid var(--line);padding-top:14px}
+.admin-invitation-list h3,.admin-session-group h3{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:500}
+.admin-invitation-list article{display:flex;justify-content:space-between;align-items:center;gap:20px;border-top:1px solid var(--line);padding:13px 0}
+.admin-invitation-list article strong,.admin-invitation-list article small{display:block}.admin-invitation-list article strong{font-size:13px}.admin-invitation-list article small{font-size:10px;color:var(--muted);margin-top:4px}
+.admin-invitation-state{font-size:10px;white-space:nowrap;color:#755c39}.admin-invitation-state.claimed{color:#3e6348}
+.admin-session-group{padding-top:15px}.admin-session-group h3{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:10px;margin:0}.admin-session-group>p{padding:12px 0}
+@media(max-width:700px){.admin-invitations{grid-template-columns:1fr;padding:22px;gap:18px}.admin-invitation-form{grid-template-columns:1fr}.admin-created-link>div{flex-direction:column}.admin-invitation-list article{align-items:flex-start}.admin-invitation-state{white-space:normal;text-align:right}}

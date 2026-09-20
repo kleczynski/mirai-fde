@@ -1,0 +1,16 @@
+{
+  "name": "brief-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Node 2 (\"Brief Studio\"): Cloudflare Worker + Workflow that turns an approved mirai.agent-context.v1 export into a mirai.build-brief.v1 document. See docs/specs/0002-discovery-build-brief-service/.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.worker.json --noEmit"
+  },
+  "devDependencies": {
+    "wrangler": "^4.87.0"
+  }
+}

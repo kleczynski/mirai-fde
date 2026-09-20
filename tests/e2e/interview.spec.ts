@@ -1,0 +1,57 @@
+import { test, expect } from '@playwright/test';
+test('rejects a malformed invitation before consent', async ({ page }) => {
+  await page.goto('/invite/not-a-valid-link');
+  await expect(page.getByRole('alert')).toContainText('link zaproszenia jest niepoprawny');
+  await expect(page.getByRole('button', { name: 'Otwórz zaproszenie' })).toBeDisabled();
+});
+test('consent, interview, reload, corrections, save, export and deletion',async({page})=>{
+  await page.goto('/');
+  await page.getByRole('button',{name:'Rozpocznij rozmowę',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Rozpocznij wywiad',exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'Tekstowo',exact:true}).click();
+  await page.getByRole('checkbox',{name:/Wiem, że rozmawiam/}).check();
+  await page.getByRole('button',{name:'Rozpocznij wywiad',exact:true}).click();
+  await page.getByLabel('Twoja odpowiedź',{exact:true}).fill('Koordynuję 12-osobowy zespół.');
+  await page.getByRole('button',{name:'Wyślij odpowiedź'}).click();
+  await expect(page.getByRole('heading', {level:1})).toContainText('konkretną czynność');
+  await expect(page.getByRole('status').filter({hasText:/Zapis lokalny w tej przeglądarce|Odpowiedzi zapisane w Supabase/})).toBeVisible();
+  await page.reload();
+  await page.getByRole('button',{name:'Wróć do swojej rozmowy'}).click();
+  await expect(page.getByRole('heading',{level:1})).toContainText('konkretną czynność');
+  await page.getByLabel('Twoja odpowiedź',{exact:true}).fill('Codziennie kopiuję dane do Excela.');
+  await page.getByRole('button',{name:'Wyślij odpowiedź'}).click();
+  await page.getByRole('button',{name:'Transkrypcja',exact:true}).click();
+  await expect(page.getByLabel('Transkrypcja rozmowy')).toContainText('Koordynuję 12-osobowy zespół.');
+  await page.getByRole('button',{name:'Zamknij transkrypcję'}).click();
+  await page.getByRole('button',{name:'Zakończ',exact:true}).click();
+  await page.getByRole('button',{name:'Zakończ i podsumuj'}).click();
+  await expect(page.getByRole('status').filter({hasText:'Rozmowa zakończona.'})).toBeVisible();
+  await expect(page.getByRole('heading',{level:1})).toContainText('Tak zrozumiałem');
+  await page.getByRole('button',{name:'Popraw wniosek'}).first().click();
+  await page.getByRole('textbox',{name:'Popraw wniosek',exact:true}).fill('Koordynuję 10-osobowy zespół.');
+  await page.getByRole('button',{name:'Zapisz poprawkę'}).click();
+  await page.getByRole('button',{name:'Potwierdź wszystkie'}).click();
+  await page.getByRole('button',{name:'Zatwierdź i zapisz'}).click();
+  await expect(page.getByText(/Zapis (lokalny|w Supabase) zakończony/)).toBeVisible();
+  const download=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Pobierz wynik'}).click();
+  expect((await download).suggestedFilename()).toMatch(/^mirai-discovery-.*\.json$/);
+  await page.getByRole('button',{name:'Usuń sesję i wszystkie odpowiedzi'}).click();
+  await page.getByRole('button',{name:'Usuń sesję',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Rozpocznij rozmowę',exact:true})).toBeVisible();
+});
+
+test('does not claim the conversation was saved when the final checkpoint fails',async({page})=>{
+  await page.goto('/');
+  await page.getByRole('button',{name:'Rozpocznij rozmowę',exact:true}).click();
+  await page.getByRole('button',{name:'Tekstowo',exact:true}).click();
+  await page.getByRole('checkbox',{name:/Wiem, że rozmawiam/}).check();
+  await page.getByRole('button',{name:'Rozpocznij wywiad',exact:true}).click();
+  await expect(page.getByLabel('Twoja odpowiedź',{exact:true})).toBeVisible();
+  await page.evaluate(() => { Storage.prototype.setItem = () => { throw new Error('storage unavailable'); }; });
+  await page.getByRole('button',{name:'Zakończ',exact:true}).click();
+  await page.getByRole('button',{name:'Zakończ i podsumuj'}).click();
+  await expect(page.getByRole('alert')).toContainText('storage unavailable');
+  await expect(page.getByRole('heading',{name:/Tak zrozumiałem/})).toHaveCount(0);
+  await expect(page.getByText('Rozmowa zakończona.')).toHaveCount(0);
+});

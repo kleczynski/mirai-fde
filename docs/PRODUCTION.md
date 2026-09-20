@@ -1,0 +1,85 @@
+# MIRAI Discovery — produkcja
+
+## Aktualny deployment
+
+- Produkcja: <https://mirai-discovery-interview.vercel.app>
+- Supabase: dedykowany projekt `mirai-discovery-interview` w `eu-central-1`; migracje zastosowane, anonimowe logowanie aktywne.
+- Aktywne: adaptacyjny wywiad, trwałe checkpointy, wznowienie, review, eksport, usunięcie, panel administratora i indywidualne zaproszenia.
+- Produkcyjne zmienne ElevenLabs, OpenAI, Turnstile oraz panelu administratora są skonfigurowane w Vercel. Ich wartości nie należą do repozytorium.
+
+## Architektura
+
+- Vercel hostuje statyczny frontend Vite oraz funkcje Node dla konfiguracji, głosu, ekstrakcji i panelu administratora.
+- Dedykowany projekt Supabase w regionie EU przechowuje anonimową sesję, transkrypt i zatwierdzone wnioski. Przeglądarka używa wyłącznie publishable key i RLS.
+- ElevenLabs pozostaje prywatnym agentem. Klucz API nigdy nie trafia do przeglądarki; funkcja głosowa wydaje tylko krótkotrwały podpisany URL po sprawdzeniu użytkownika i własności sesji.
+- OpenAI jest opcjonalne i służy wyłącznie do ekstrakcji ustrukturyzowanego wyniku po rozmowie.
+
+Frontend i funkcje są wdrażane w `fra1`. Projekt Supabase należy utworzyć w `Central EU (Frankfurt)`, aby nie przenosić transkryptów między odległymi regionami bez potrzeby.
+
+## Środowiska
+
+Nie wolno łączyć Preview z produkcyjną bazą. Użyj osobnych projektów Supabase dla Preview i Production oraz osobnych agentów/kluczy ElevenLabs.
+
+| Zmienna | Klient | Serwer | Wymagana w produkcji |
+| --- | --- | --- | --- |
+| `VITE_SUPABASE_URL` | tak | nie | tak |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | tak | nie | tak |
+| `VITE_TURNSTILE_SITE_KEY` | tak | nie | tak przed publicznym startem |
+| `SUPABASE_URL` | nie | tak | tak |
+| `SUPABASE_PUBLISHABLE_KEY` | nie | tak | tak |
+| `ELEVENLABS_API_KEY` | nie | tak | tak dla głosu |
+| `ELEVENLABS_AGENT_ID` | nie | tak | tak dla głosu |
+| `OPENAI_API_KEY` | nie | tak | opcjonalna |
+| `OPENAI_EXTRACTION_MODEL` | nie | tak | opcjonalna |
+| `SUPABASE_SERVICE_ROLE_KEY` | nie | tak | tak dla panelu administratora |
+| `MIRAI_ADMIN_EMAILS` | nie | tak | tak dla panelu administratora |
+
+`SUPABASE_SERVICE_ROLE_KEY` jest wykorzystywany wyłącznie po serwerowej weryfikacji JWT administratora i adresu z `MIRAI_ADMIN_EMAILS`. Nigdy nie wolno wystawić go jako zmiennej `VITE_*` ani zwrócić w odpowiedzi API. Pozostałe endpointy uczestnika używają publishable key i JWT użytkownika.
+
+## Supabase
+
+1. Utwórz dedykowany projekt i połącz katalog przez `npx supabase link --project-ref <ref>`.
+2. Zastosuj wersjonowane migracje poleceniem `npx supabase db push`.
+3. Włącz Anonymous Sign-Ins oraz CAPTCHA/Turnstile. Ten sam sekret Turnstile ustaw po stronie Supabase Auth, a publiczny site key jako `VITE_TURNSTILE_SITE_KEY`. Ustaw dozwolone adresy produkcyjne i preview w Auth URL Configuration. Token CAPTCHA jest jednorazowy; aplikacja odświeża go po próbie logowania.
+4. Sprawdź, czy `public` jest wystawiony w Data API. Migracje nadają jawne granty oraz włączają RLS; oba mechanizmy są wymagane.
+5. Uruchom Database i Security Advisors. Każde ostrzeżenie dotyczące RLS, funkcji `security definer` lub indeksów rozwiąż przed otwarciem publicznego ruchu.
+6. Zweryfikuj retencję: job `mirai-discovery-retention` ma działać co godzinę, a wygasła sesja ma być natychmiast niewidoczna przez RLS.
+7. Zaproszenia tworzy administrator w `/admin`. Niewykorzystany link działa przez 30 dni. Panel pokazuje etykietę i branżę tylko administratorowi; link można skopiować tylko po utworzeniu. Posiadanie linku nie jest potwierdzeniem tożsamości odbiorcy.
+
+## ElevenLabs
+
+Agent musi być prywatny. Wyłącz przechowywanie audio i ustaw najkrótszą dostępną retencję konwersacji zgodną z komunikatem zgody. Klucz ogranicz do wydawania signed URL dla konkretnego agenta. Po wdrożeniu sprawdź na prawdziwym urządzeniu: zgodę mikrofonu, rozpoznawanie polskiej mowy, barge-in, przerwanie, pauzę, wznowienie i utratę sieci.
+
+## Vercel
+
+Projekt jest skonfigurowany przez `vercel.json`; Node jest przypięty do obsługiwanej linii 22–24. Sekrety dodaj osobno do Preview i Production. Przykład bez umieszczania wartości w historii powłoki:
+
+```sh
+vercel env add SUPABASE_URL production --sensitive
+vercel env add SUPABASE_PUBLISHABLE_KEY production --sensitive
+vercel env add ELEVENLABS_API_KEY production --sensitive
+vercel env add ELEVENLABS_AGENT_ID production
+```
+
+Przed promocją:
+
+```sh
+npm ci
+npm run check
+npx playwright install chromium
+npm run test:e2e
+vercel build
+vercel deploy --prebuilt
+```
+
+Po sprawdzeniu Preview promuj dokładnie ten sam artefakt poleceniem `vercel promote <preview-url>`. Migracje produkcyjne wykonaj przed promocją, gdy aplikacja nadal jest kompatybilna ze starym i nowym schematem.
+
+## Kryteria odbioru
+
+- dwa anonimowe konta nie mogą czytać, zmieniać ani usuwać swoich danych nawzajem;
+- bez JWT endpointy głosu i ekstrakcji zwracają `401`, a obca/nieistniejąca sesja nie ujawnia treści;
+- nieaktywny wywiad nie otrzymuje signed URL, a niezakończony nie uruchamia ekstrakcji;
+- logi nie zawierają JWT, signed URL, audio ani transkryptu;
+- CSP i Permissions Policy pozwalają na mikrofon oraz wyłącznie wymagane połączenia;
+- desktop i mobile przechodzą pełny scenariusz: zgoda, rozmowa, przeładowanie, podsumowanie, korekta, zapis, eksport i usunięcie;
+- po wdrożeniu `/api/config` pokazuje aktywny głos i ekstrakcję zgodnie z rzeczywiście ustawionymi zmiennymi.

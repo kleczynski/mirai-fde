@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+.DS_Store
+.vercel/
+.vercel
+.env*
+.local/voice-evals/
+.wrangler/
+supabase/.temp/

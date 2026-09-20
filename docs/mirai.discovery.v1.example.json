@@ -1,0 +1,439 @@
+{
+  "schemaVersion": "mirai.discovery.v1",
+  "sessionId": "dcc643f2-9c00-4d0a-a980-98691803fe36",
+  "locale": "pl-PL",
+  "scenarioVersion": "discovery-interview.v1",
+  "promptVersion": "discovery-agent.v1",
+  "extraction": {
+    "method": "evidence-rules",
+    "model": "deterministic-v2",
+    "generatedAt": "2026-09-15T15:42:44.737Z"
+  },
+  "participantContext": [
+    {
+      "id": "fe5d13d3-8ebd-4efc-b3c2-a37c258cce2c",
+      "text": "Jestem stolarzem. Prowadzę małą pracownię i robię meble na zamówienie, głównie kuchnie i szafy.",
+      "confidence": 0.9,
+      "evidenceIds": [
+        "22b59b5c-53a9-4c63-a653-eda55afa0376"
+      ],
+      "review": {
+        "status": "confirmed",
+        "originalText": null,
+        "reviewedAt": "2026-09-15T15:42:44.742Z"
+      }
+    },
+    {
+      "id": "8fab956f-8958-42f9-aa19-1d8b3fee3c1b",
+      "text": "Rano pracuję w warsztacie. Później jadę na pomiar albo montaż. Wieczorem odpisuję na pytania i przygotowuję wyceny.",
+      "confidence": 0.9,
+      "evidenceIds": [
+        "b0352162-b8d6-424c-8bf7-e4e4d5687c20"
+      ],
+      "review": {
+        "status": "confirmed",
+        "originalText": null,
+        "reviewedAt": "2026-09-15T15:42:44.742Z"
+      }
+    },
+    {
+      "id": "fe1e2641-6058-4abb-a7a1-305f6deec4b2",
+      "text": "Chciałbym mieć wymiary, zdjęcia i ustalenia dla jednego zamówienia w jednym miejscu, żeby nie szukać ich po pracy.",
+      "confidence": 0.9,
+      "evidenceIds": [
+        "ca6b3e94-d7ae-4394-b682-1f2eed5daf6f"
+      ],
+      "review": {
+        "status": "confirmed",
+        "originalText": null,
+        "reviewedAt": "2026-09-15T15:42:44.742Z"
+      }
+    }
+  ],
+  "painPoints": [
+    {
+      "id": "5797ae42-3e4c-4908-95f7-0ae02b3cd06d",
+      "text": "Najwięcej nerwów kosztuje mnie szukanie notatek i zdjęć z pomiarów. Ostatnio pomyliłem wymiary, przepisując je z kartki do wyceny.",
+      "confidence": 0.9,
+      "evidenceIds": [
+        "b3379b46-ac33-4ffb-881d-ce40e126eaf1"
+      ],
+      "review": {
+        "status": "confirmed",
+        "originalText": null,
+        "reviewedAt": "2026-09-15T15:42:44.742Z"
+      }
+    },
+    {
+      "id": "3822006b-b42a-48cf-9283-d920c4fdc27c",
+      "text": "Szukam takich informacji kilka razy w tygodniu. Czasem tracę na to pół godziny wieczorem.",
+      "confidence": 0.9,
+      "evidenceIds": [
+        "c52d3d92-ff55-4c73-b2b2-708a38aa9b43"
+      ],
+      "review": {
+        "status": "confirmed",
+        "originalText": null,
+        "reviewedAt": "2026-09-15T15:42:44.742Z"
+      }
+    },
+    {
+      "id": "ea71af4f-3abc-45af-8112-2b7433c539cc",
+      "text": "Wycena czeka, klient się dopytuje, a ja wracam do pracy po kolacji zamiast odpocząć.",
+      "confidence": 0.9,
+      "evidenceIds": [
+        "ea56b6a9-4a33-48b8-9e2c-ed1f387d68ea"
+      ],
+      "review": {
+        "status": "confirmed",
+        "originalText": null,
+        "reviewedAt": "2026-09-15T15:42:44.742Z"
+      }
+    }
+  ],
+  "workflows": [
+    {
+      "id": "f5b982ff-ed54-4c0f-b52f-060d948a0f5d",
+      "text": "Przy nowym zamówieniu jadę na pomiar, zapisuję wymiary, robię zdjęcia, uzgadniam materiały i przygotowuję wycenę.",
+      "confidence": 0.9,
+      "evidenceIds": [
+        "59b3b221-4f22-4843-99c4-ce6ab58adccd"
+      ],
+      "review": {
+        "status": "confirmed",
+        "originalText": null,
+        "reviewedAt": "2026-09-15T15:42:44.742Z"
+      },
+      "steps": []
+    }
+  ],
+  "tools": [
+    {
+      "id": "48e2c4ae-5d0f-4ed0-888a-9a31224550b8",
+      "text": "Mam miarkę, papierowy notes i telefon do zdjęć. Ceny materiałów sprawdzam w cenniku dostawcy.",
+      "confidence": 0.9,
+      "evidenceIds": [
+        "367aee17-66dd-4476-a452-d913f92ab9a4"
+      ],
+      "review": {
+        "status": "confirmed",
+        "originalText": null,
+        "reviewedAt": "2026-09-15T15:42:44.742Z"
+      }
+    }
+  ],
+  "constraints": [
+    {
+      "id": "dea1e037-7a58-47ac-8b71-f1ec4ca8d416",
+      "text": "Dobór materiałów, projekt i końcową cenę chcę ustalać sam. Podczas pomiaru nie chcę wypełniać długich formularzy.",
+      "confidence": 0.9,
+      "evidenceIds": [
+        "7b0f6329-531c-4648-8769-5a05a3c95ca4"
+      ],
+      "review": {
+        "status": "confirmed",
+        "originalText": null,
+        "reviewedAt": "2026-09-15T15:42:44.742Z"
+      }
+    },
+    {
+      "id": "fb6d6833-4c78-4838-a81b-0484ddd4e707",
+      "text": "W warsztacie zdarza się brak internetu. Potrzebuję czegoś prostego, co obsłużę na telefonie.",
+      "confidence": 0.9,
+      "evidenceIds": [
+        "19f28080-a633-4091-8247-fb4cde7bef1b"
+      ],
+      "review": {
+        "status": "confirmed",
+        "originalText": null,
+        "reviewedAt": "2026-09-15T15:42:44.742Z"
+      }
+    }
+  ],
+  "automationOpportunities": [
+    {
+      "id": "7f4dac2b-fbcf-47fc-9557-59e2d9807cc2",
+      "text": "Sprawdzić, czy zebranie powiązanych notatek, zdjęć lub informacji w jednym miejscu ułatwi tę czynność. Dalsza automatyzacja wymaga rozpoznania potrzeb.",
+      "confidence": 0.5,
+      "evidenceIds": [
+        "b3379b46-ac33-4ffb-881d-ce40e126eaf1",
+        "c52d3d92-ff55-4c73-b2b2-708a38aa9b43"
+      ],
+      "review": {
+        "status": "confirmed",
+        "originalText": null,
+        "reviewedAt": "2026-09-15T15:42:44.742Z"
+      },
+      "linkedPainPointIds": [
+        "5797ae42-3e4c-4908-95f7-0ae02b3cd06d",
+        "3822006b-b42a-48cf-9283-d920c4fdc27c"
+      ],
+      "validationNeeded": [
+        "Ustalić, które informacje warto łączyć i jak są dziś zapisywane.",
+        "Sprawdzić prosty sposób na jednym rzeczywistym przypadku, bez zmieniania osądu eksperta."
+      ],
+      "priority": "explore"
+    }
+  ],
+  "recommendedNextStep": {
+    "text": "Sprawdź, czy dobrze rozumiemy Twoją sytuację. Jeśli chcesz coś zmienić, wybierz jeden mały krok, który warto wypróbować.",
+    "evidenceIds": [
+      "19f28080-a633-4091-8247-fb4cde7bef1b"
+    ],
+    "review": {
+      "status": "confirmed",
+      "originalText": null,
+      "reviewedAt": "2026-09-15T15:42:44.742Z"
+    }
+  },
+  "unansweredQuestions": [
+    "Doprecyzować: wejścia i rezultat.",
+    "Doprecyzować: wyjątki."
+  ],
+  "evidence": [
+    {
+      "id": "22b59b5c-53a9-4c63-a653-eda55afa0376",
+      "segmentId": "22b59b5c-53a9-4c63-a653-eda55afa0376",
+      "quote": "Jestem stolarzem. Prowadzę małą pracownię i robię meble na zamówienie, głównie kuchnie i szafy."
+    },
+    {
+      "id": "b0352162-b8d6-424c-8bf7-e4e4d5687c20",
+      "segmentId": "b0352162-b8d6-424c-8bf7-e4e4d5687c20",
+      "quote": "Rano pracuję w warsztacie. Później jadę na pomiar albo montaż. Wieczorem odpisuję na pytania i przygotowuję wyceny."
+    },
+    {
+      "id": "59b3b221-4f22-4843-99c4-ce6ab58adccd",
+      "segmentId": "59b3b221-4f22-4843-99c4-ce6ab58adccd",
+      "quote": "Przy nowym zamówieniu jadę na pomiar, zapisuję wymiary, robię zdjęcia, uzgadniam materiały i przygotowuję wycenę."
+    },
+    {
+      "id": "367aee17-66dd-4476-a452-d913f92ab9a4",
+      "segmentId": "367aee17-66dd-4476-a452-d913f92ab9a4",
+      "quote": "Mam miarkę, papierowy notes i telefon do zdjęć. Ceny materiałów sprawdzam w cenniku dostawcy."
+    },
+    {
+      "id": "b3379b46-ac33-4ffb-881d-ce40e126eaf1",
+      "segmentId": "b3379b46-ac33-4ffb-881d-ce40e126eaf1",
+      "quote": "Najwięcej nerwów kosztuje mnie szukanie notatek i zdjęć z pomiarów. Ostatnio pomyliłem wymiary, przepisując je z kartki do wyceny."
+    },
+    {
+      "id": "c52d3d92-ff55-4c73-b2b2-708a38aa9b43",
+      "segmentId": "c52d3d92-ff55-4c73-b2b2-708a38aa9b43",
+      "quote": "Szukam takich informacji kilka razy w tygodniu. Czasem tracę na to pół godziny wieczorem."
+    },
+    {
+      "id": "ea56b6a9-4a33-48b8-9e2c-ed1f387d68ea",
+      "segmentId": "ea56b6a9-4a33-48b8-9e2c-ed1f387d68ea",
+      "quote": "Wycena czeka, klient się dopytuje, a ja wracam do pracy po kolacji zamiast odpocząć."
+    },
+    {
+      "id": "7b0f6329-531c-4648-8769-5a05a3c95ca4",
+      "segmentId": "7b0f6329-531c-4648-8769-5a05a3c95ca4",
+      "quote": "Dobór materiałów, projekt i końcową cenę chcę ustalać sam. Podczas pomiaru nie chcę wypełniać długich formularzy."
+    },
+    {
+      "id": "ca6b3e94-d7ae-4394-b682-1f2eed5daf6f",
+      "segmentId": "ca6b3e94-d7ae-4394-b682-1f2eed5daf6f",
+      "quote": "Chciałbym mieć wymiary, zdjęcia i ustalenia dla jednego zamówienia w jednym miejscu, żeby nie szukać ich po pracy."
+    },
+    {
+      "id": "19f28080-a633-4091-8247-fb4cde7bef1b",
+      "segmentId": "19f28080-a633-4091-8247-fb4cde7bef1b",
+      "quote": "W warsztacie zdarza się brak internetu. Potrzebuję czegoś prostego, co obsłużę na telefonie."
+    }
+  ],
+  "transcript": [
+    {
+      "id": "d97c5eec-aaec-4cd0-abdf-0a0748ab4b1e",
+      "speaker": "agent",
+      "text": "Czym się zajmujesz? Opowiedz o swojej pracy własnymi słowami.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "context",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "22b59b5c-53a9-4c63-a653-eda55afa0376",
+      "speaker": "participant",
+      "text": "Jestem stolarzem. Prowadzę małą pracownię i robię meble na zamówienie, głównie kuchnie i szafy.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "context",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "ac3df05f-5b86-4054-8cf3-c17081045524",
+      "speaker": "agent",
+      "text": "Jak wygląda Twój zwykły dzień, od początku do końca?",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "day",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "b0352162-b8d6-424c-8bf7-e4e4d5687c20",
+      "speaker": "participant",
+      "text": "Rano pracuję w warsztacie. Później jadę na pomiar albo montaż. Wieczorem odpisuję na pytania i przygotowuję wyceny.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "day",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "5a7ea435-ffd2-4cef-b6f5-0bf11e376964",
+      "speaker": "agent",
+      "text": "Co robisz regularnie? Przeprowadź mnie przez ostatni taki przykład.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "workflow",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "59b3b221-4f22-4843-99c4-ce6ab58adccd",
+      "speaker": "participant",
+      "text": "Przy nowym zamówieniu jadę na pomiar, zapisuję wymiary, robię zdjęcia, uzgadniam materiały i przygotowuję wycenę.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "workflow",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "51b1c3b7-a6a4-42e8-b3b3-177983844b60",
+      "speaker": "agent",
+      "text": "Co pomaga Ci to zrobić? Mogą to być ludzie, notatki, narzędzia albo programy.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "tools",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "367aee17-66dd-4476-a452-d913f92ab9a4",
+      "speaker": "participant",
+      "text": "Mam miarkę, papierowy notes i telefon do zdjęć. Ceny materiałów sprawdzam w cenniku dostawcy.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "tools",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "68b3f3a1-83ef-4ce4-9ef4-82b535d30ad5",
+      "speaker": "agent",
+      "text": "W którym momencie robi się trudno lub coś Cię irytuje? Opowiedz o konkretnej sytuacji.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "pain",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "b3379b46-ac33-4ffb-881d-ce40e126eaf1",
+      "speaker": "participant",
+      "text": "Najwięcej nerwów kosztuje mnie szukanie notatek i zdjęć z pomiarów. Ostatnio pomyliłem wymiary, przepisując je z kartki do wyceny.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "pain",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "1d528176-65f9-4a5e-866c-e09539cfddf1",
+      "speaker": "agent",
+      "text": "Jak często zdarzają się podobne sytuacje?",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "frequency",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "c52d3d92-ff55-4c73-b2b2-708a38aa9b43",
+      "speaker": "participant",
+      "text": "Szukam takich informacji kilka razy w tygodniu. Czasem tracę na to pół godziny wieczorem.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "frequency",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "e8ca71e8-5392-4c6c-bf33-c6eebd370922",
+      "speaker": "agent",
+      "text": "Co dzieje się potem, gdy coś nie idzie zgodnie z planem?",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "impact",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "ea56b6a9-4a33-48b8-9e2c-ed1f387d68ea",
+      "speaker": "participant",
+      "text": "Wycena czeka, klient się dopytuje, a ja wracam do pracy po kolacji zamiast odpocząć.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "impact",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "b2a5508e-0675-4162-858d-b92e06229000",
+      "speaker": "agent",
+      "text": "Co musi pozostać po Twojemu, nawet gdyby dało się coś uprościć?",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "constraints",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "7b0f6329-531c-4648-8769-5a05a3c95ca4",
+      "speaker": "participant",
+      "text": "Dobór materiałów, projekt i końcową cenę chcę ustalać sam. Podczas pomiaru nie chcę wypełniać długich formularzy.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "constraints",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "346ada78-13de-429b-86c5-3cf9f0eb41d9",
+      "speaker": "agent",
+      "text": "Gdyby można było ułatwić Ci jedną rzecz w codziennej pracy, co by to było?",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "goal",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "ca6b3e94-d7ae-4394-b682-1f2eed5daf6f",
+      "speaker": "participant",
+      "text": "Chciałbym mieć wymiary, zdjęcia i ustalenia dla jednego zamówienia w jednym miejscu, żeby nie szukać ich po pracy.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "goal",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "5dfb9b38-f1d3-490e-ac49-cccfe0dd5d0f",
+      "speaker": "agent",
+      "text": "O co nie zapytałem, a co jest ważne, żeby dobrze zrozumieć Twoją pracę?",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "next",
+      "source": "demo",
+      "providerEventId": null
+    },
+    {
+      "id": "19f28080-a633-4091-8247-fb4cde7bef1b",
+      "speaker": "participant",
+      "text": "W warsztacie zdarza się brak internetu. Potrzebuję czegoś prostego, co obsłużę na telefonie.",
+      "timestamp": "2026-09-15T15:42:44.736Z",
+      "questionId": "next",
+      "source": "demo",
+      "providerEventId": null
+    }
+  ],
+  "consent": {
+    "version": "discovery-consent.v1",
+    "aiDisclosure": true,
+    "transcriptStorage": true,
+    "analysis": true,
+    "audioStorage": false,
+    "acceptedAt": "2026-09-15T15:42:44.734Z",
+    "retentionDays": 30
+  },
+  "startedAt": "2026-09-15T15:42:44.734Z",
+  "completedAt": "2026-09-15T15:42:44.736Z",
+  "expiresAt": "2026-10-15T15:42:44.734Z"
+}

@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Geologica:wght@100..900&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --color-ground: #F3F6F4;
+  --color-ink: #15201D;
+  --color-mist: #D9E2DE;
+  --color-sage: #6F918B;
+  --color-air: #C4E7DE;
+  --color-ember: #D49374;
+  --font-family-sans: 'Geologica', sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: 'Geologica', sans-serif;
+  background-color: #F3F6F4;
+  color: #15201D;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar { display: none; }
+* { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Signal CSS fallback animation */
+@keyframes signal-drift {
+  0%, 100% { transform: rotate(-0.8deg) scaleY(1.00) translateY(0px); }
+  33%       { transform: rotate(0.4deg)  scaleY(1.015) translateY(-4px); }
+  66%       { transform: rotate(1.0deg)  scaleY(0.995) translateY(3px); }
+}
+
+@keyframes signal-listen {
+  0%, 100% { opacity: 0.55; transform: scaleX(1.04) scaleY(1.01); }
+  50%       { opacity: 0.45; transform: scaleX(1.06) scaleY(1.00); }
+}
+
+@keyframes signal-think {
+  0%   { opacity: 0.5; }
+  45%  { opacity: 0.75; }
+  55%  { opacity: 0.75; }
+  100% { opacity: 0.5; }
+}
+
+@keyframes signal-speak {
+  0%, 100% { transform: scaleX(1.00) scaleY(1.000); opacity: 0.55; }
+  50%       { transform: scaleX(1.025) scaleY(1.012); opacity: 0.70; }
+}
+
+.signal-css[data-state="idle"]      { animation: signal-drift  8.0s ease-in-out infinite; }
+.signal-css[data-state="listening"] { animation: signal-listen 2.0s ease-in-out infinite; }
+.signal-css[data-state="thinking"]  { animation: signal-think  3.0s ease-in-out infinite; }
+.signal-css[data-state="speaking"]  { animation: signal-speak  1.2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .signal-css { animation: none !important; }
+}
+
+/* Screen transitions */
+.screen-fade-enter {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.screen-fade-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
