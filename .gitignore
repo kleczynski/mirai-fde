@@ -8,7 +8,7 @@ playwright-report/
 .DS_Store
 .vercel/
 .vercel
-.env*
-.local/voice-evals/
+.local/
 .wrangler/
 supabase/.temp/
+supabase/.branches/
