@@ -9,13 +9,6 @@ playwright-report/
 .vercel/
 .vercel
 .env*
-!.env.example
 .local/voice-evals/
 .wrangler/
 supabase/.temp/
-supabase/.branches/
-
-.dev.vars
-.dev.vars.*
-!.dev.vars.example
-.local/brief-studio/

@@ -1,12 +1,24 @@
+# `brief-studio` — Node 2 ("Brief Studio") Cloudflare Worker + Workflow.
+#
+# See docs/specs/0002-discovery-build-brief-service/index.md for the decision
+# this implements. This is a minimal, step-2 skeleton (see build-plan.md,
+# step 2): one HTTP entrypoint, one Workflow, one echo step. No OpenAI, no
+# Supabase, no admin auth yet — those are steps 3, 6, and 7.
+#
+# Deployed independently from the sibling Vite/Express/Vercel app in this
+# repo (api/*.ts): this file and `wrangler deploy` are the only way this
+# Worker ships, on its own cycle, per the spec's hard constraint.
+
 name = "mirai-brief-studio"
 main = "src/index.ts"
+# Keep current; bump periodically per the `wrangler`/`cloudflare` skills.
 compatibility_date = "2026-09-18"
-compatibility_flags = ["nodejs_compat"]
 
 [observability]
 enabled = true
-head_sampling_rate = 1
 
+# Cloudflare Workflow binding for the five-step build-brief pipeline. Only
+# one step exists so far (echo); see src/workflows/brief-pipeline.ts.
 [[workflows]]
 name = "mirai-brief-studio-pipeline"
 binding = "BRIEF_PIPELINE"

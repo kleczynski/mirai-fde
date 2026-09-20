@@ -2,7 +2,6 @@ import { createClient, type SupabaseClient, type User } from '@supabase/supabase
 import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { SessionSchema, type InterviewSession } from '../src/domain/contract.js';
-import { redactSecrets } from '../src/domain/agent-context.js';
 import { HttpError, type ApiInput } from './agent.js';
 
 const SessionIdSchema = z.object({ sessionId: z.uuid() });
@@ -184,11 +183,9 @@ export async function exportAdminSession(input: ApiInput) {
   const limitations: string[] = [];
   if (!confirmed) limitations.push('Brak zatwierdzonego raportu, więc zatwierdzone fakty nie są dostępne.');
   if (!detail.runs.length) limitations.push('Brak zarejestrowanego uruchomienia telemetrycznego.');
-  return redactSecrets({
+  return {
     contextPackageVersion: 'mirai.agent-context.v1',
-    session: { id: detail.session.id, expiresAt: detail.session.expiresAt, mode: detail.session.mode, revision: detail.session.revision },
-    evidence: confirmed?.evidence ?? [],
-    painPoints: confirmed?.painPoints ?? [],
+    session: { id: detail.session.id, expiresAt: detail.session.expiresAt, mode: detail.session.mode },
     approvedFacts: confirmed ? [...confirmed.participantContext, ...confirmed.workflows, ...confirmed.tools, ...confirmed.constraints].filter(item => item.review.status !== 'unreviewed') : null,
     corrections: confirmed ? [...confirmed.participantContext, ...confirmed.painPoints, ...confirmed.workflows, ...confirmed.tools, ...confirmed.constraints].filter(item => item.review.status === 'corrected') : [],
     hypotheses: confirmed?.automationOpportunities ?? null,
@@ -199,7 +196,7 @@ export async function exportAdminSession(input: ApiInput) {
     operatorNotes: detail.operatorNotes,
     proposedNextTask: confirmed?.recommendedNextStep ?? null,
     limitations,
-  });
+  };
 }
 
 export async function deleteAdminSession(input: ApiInput): Promise<{ deleted: true }> {
