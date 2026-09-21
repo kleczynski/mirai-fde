@@ -1,5 +1,7 @@
 // Wypełnia docs/prompts/build-and-deploy-demo.md danymi z jednej, zakończonej
-// rozmowy discovery i wypisuje gotowy prompt do wklejenia w Codex.
+// rozmowy discovery, rejestruje demo w hosted_demos (widoczne od razu w panelu
+// admina, sekcja "Demo dla klientów") i wypisuje gotowy prompt do wklejenia w
+// agenta budującego (Astra/Codex).
 //
 // Użycie:
 //   npx tsx scripts/generate-demo-prompt.ts --session <uuid>
@@ -9,7 +11,7 @@
 // łączy się bezpośrednio z Supabase tym samym service role key co panel
 // admina, bo to skrypt uruchamiany ręcznie przez operatora na jego maszynie.
 
-import { mkdir, readFile, writeFile, appendFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
@@ -49,8 +51,16 @@ async function main() {
   const result = DiscoverySchema.parse(state.result);
 
   const clientLabel = invitation?.label ?? 'Klient';
-  const industry = invitation?.industry ?? 'nieznana branża';
+  const industry = invitation?.industry ?? null;
   const slug = clientLabel.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'demo';
+
+  const { data: demo, error: demoError } = await service
+    .from('hosted_demos')
+    .insert({ session_id: sessionId, client_label: clientLabel, industry, status: 'building' })
+    .select('id')
+    .single();
+  if (demoError || !demo) throw new Error(`Nie udało się zarejestrować demo w hosted_demos: ${demoError?.message ?? 'brak wiersza'}`);
+  const demoId = demo.id as string;
 
   const templatePath = path.join(process.cwd(), 'docs/prompts/build-and-deploy-demo.md');
   const template = await readFile(templatePath, 'utf8');
@@ -58,7 +68,8 @@ async function main() {
   const filled = template
     .replace(/\{\{CLIENT_LABEL\}\}/g, clientLabel)
     .replace(/\{\{CLIENT_SLUG\}\}/g, slug)
-    .replace(/\{\{INDUSTRY\}\}/g, industry)
+    .replace(/\{\{INDUSTRY\}\}/g, industry ?? 'nieznana branża')
+    .replace(/\{\{DEMO_ID\}\}/g, demoId)
     .replace(/\{\{PARTICIPANT_CONTEXT\}\}/g, list(result.participantContext))
     .replace(/\{\{WORKFLOWS\}\}/g, list(result.workflows))
     .replace(/\{\{PAIN_POINTS\}\}/g, list(result.painPoints))
@@ -72,14 +83,10 @@ async function main() {
   const outPath = path.join(outDir, `${slug}-${sessionId!.slice(0, 8)}.md`);
   await writeFile(outPath, filled, 'utf8');
 
-  const registryPath = path.join(process.cwd(), 'docs/scope/demos.md');
-  const today = new Date().toISOString().slice(0, 10);
-  const row = `| ${today} | ${sessionId} | ${clientLabel} | ${industry} | (uzupełnij po wdrożeniu) | testing | |\n`;
-  await appendFile(registryPath, row, 'utf8');
-
   console.log(filled);
   console.error(`\n---\nZapisano też do: ${outPath}`);
-  console.error(`Dopisano wiersz do ${registryPath} — uzupełnij kolumnę Demo URL ręcznie po wdrożeniu.`);
+  console.error(`Zarejestrowano w hosted_demos jako ${demoId} (status: building) — widoczne od razu w panelu admina, sekcja "Demo dla klientów".`);
+  console.error(`Po wdrożeniu przez agenta wklej adres demo i repo w panelu i zmień status na "live".`);
 }
 
 main().catch(e => { console.error(e instanceof Error ? e.message : e); process.exit(1); });

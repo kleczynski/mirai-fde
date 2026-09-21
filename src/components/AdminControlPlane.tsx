@@ -44,6 +44,86 @@ function TurnNotes({ turnId, notes, onSave }: { turnId: string; notes: OperatorN
 function Runs({ runs, onTrace, busy }: { runs?: Run[]; onTrace: (runId: string) => void; busy: boolean }) { return <section className="admin-card"><h3>Uruchomienia</h3>{!runs ? <p>Brak danych o uruchomieniach i telemetrii.</p> : runs.length === 0 ? <p>Nie zarejestrowano uruchomień dla tej rozmowy.</p> : <div className="admin-runs">{runs.map(run => <article key={run.id}><strong>{run.kind} <span>{run.status}</span></strong><small>ID: {run.id}, wersja {run.version}</small><p>Prompt: {run.configuration.promptVersion ?? 'Brak danych'} · model: {run.configuration.model ?? 'Brak danych'} · konfiguracja: {run.configuration.configurationStatus}</p><p>Start: {date(run.createdAt)} · koniec: {date(run.completedAt)}</p><p>Opóźnienie pierwszej odpowiedzi: {run.telemetry?.firstResponseLatencyMs == null ? 'Brak danych' : `${run.telemetry.firstResponseLatencyMs} ms`}</p>{run.errorCode && <p className="admin-error-text">Błąd: {run.errorCode}</p>}{run.kind === 'voice' && <button className="small-button" disabled={busy} onClick={() => onTrace(run.id)}>Pobierz ślad ElevenLabs</button>}</article>)}</div>}</section>; }
 function Trace({ trace }: { trace: VoiceTrace }) { return <section className="admin-card" aria-label="Ślad ElevenLabs"><h3>Ślad ElevenLabs</h3><p>Rozmowa: {trace.conversationId} · status: {trace.status}</p><p>Gałąź: {trace.branchId ?? 'Brak danych'} · wersja: {trace.versionId ?? 'Brak danych'}</p><p>{trace.transcript.length} tur u dostawcy · {trace.spans.length} spanów{trace.truncated ? ' · wynik skrócony' : ''}.</p>{trace.spans.length ? <details><summary>Spany i czasy</summary><ol>{trace.spans.map((span, index) => <li key={`${span.spanId ?? 'span'}-${index}`}><strong>{span.name}</strong><small> start {span.startTimeUnixNano ?? 'brak'} · koniec {span.endTimeUnixNano ?? 'brak'} · status {String(span.status ?? 'brak')}</small>{Object.keys(span.attributes).length > 0 && <pre>{JSON.stringify(span.attributes, null, 2)}</pre>}</li>)}</ol></details> : <p>Brak spanów OpenTelemetry w odpowiedzi dostawcy.</p>}</section>; }
 
+type HostedDemoStatus = 'building' | 'live' | 'client_reviewing' | 'approved_exclusive' | 'declined' | 'paid';
+type HostedDemo = { id: string; sessionId: string | null; clientLabel: string; industry: string | null; demoUrl: string | null; repoUrl: string | null; status: HostedDemoStatus; createdAt: string; updatedAt: string; feedbackCount: number; unhandledFeedbackCount: number };
+type DemoFeedbackItem = { id: string; message: string; page: string | null; handled: boolean; createdAt: string };
+const DEMO_STATUSES: HostedDemoStatus[] = ['building', 'live', 'client_reviewing', 'approved_exclusive', 'declined', 'paid'];
+
+function DemosPanel() {
+  const [demos, setDemos] = useState<HostedDemo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<DemoFeedbackItem[]>([]);
+  const [edit, setEdit] = useState<{ demoUrl: string; repoUrl: string; status: HostedDemoStatus } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const selected = demos.find(demo => demo.id === selectedId) ?? null;
+
+  const refresh = async () => {
+    setLoading(true); setError('');
+    try { const payload = await request('/api/admin/hosted-demos') as { demos: HostedDemo[] }; setDemos(payload.demos); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się wczytać demo.'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void refresh(); }, []);
+
+  const open = async (demo: HostedDemo) => {
+    setSelectedId(demo.id); setEdit({ demoUrl: demo.demoUrl ?? '', repoUrl: demo.repoUrl ?? '', status: demo.status }); setBusy(true); setError('');
+    try { const payload = await request('/api/admin/hosted-demo-detail', 'POST', { demoId: demo.id }) as { feedback: DemoFeedbackItem[] }; setFeedback(payload.feedback); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się wczytać uwag klienta.'); }
+    finally { setBusy(false); }
+  };
+  const save = async () => {
+    if (!selected || !edit) return; setBusy(true); setError('');
+    try {
+      await request('/api/admin/hosted-demo-update', 'POST', { demoId: selected.id, status: edit.status, demoUrl: edit.demoUrl.trim() || null, repoUrl: edit.repoUrl.trim() || null });
+      await refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się zapisać zmian w demo.'); }
+    finally { setBusy(false); }
+  };
+  const markHandled = async (feedbackId: string) => {
+    setBusy(true); setError('');
+    try { await request('/api/admin/hosted-demo-feedback-handled', 'POST', { feedbackId, handled: true }); setFeedback(items => items.map(item => item.id === feedbackId ? { ...item, handled: true } : item)); await refresh(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się oznaczyć uwagi jako obsłużonej.'); }
+    finally { setBusy(false); }
+  };
+
+  return <section className="admin-demos" aria-labelledby="demos-title">
+    <span className="section-label">Demo dla klientów</span>
+    <h2 id="demos-title">Wygenerowane demo, feedback, status.</h2>
+    <p>Rejestr wypełnia automatycznie <code>scripts/generate-demo-prompt.ts</code>. Adres demo, repo i status ustawiasz ręcznie po tym, jak agent zgłosi wdrożenie.</p>
+    {error && <p className="admin-error" role="alert"><ShieldAlert/> {error}</p>}
+    <div className="admin-grid">
+      <div className="admin-list">
+        {loading ? <p>Wczytuję demo…</p> : demos.length === 0 ? <p>Nie ma jeszcze żadnego wygenerowanego demo.</p> : demos.map(demo =>
+          <button key={demo.id} className={selectedId === demo.id ? 'admin-row selected' : 'admin-row'} onClick={() => void open(demo)}>
+            <span><strong>{demo.clientLabel}</strong><small>{demo.industry ?? 'branża nieznana'} · {date(demo.createdAt)}{demo.unhandledFeedbackCount > 0 ? ` · ${demo.unhandledFeedbackCount} nowych uwag` : ''}</small></span>
+            <span className="admin-status">{demo.status}</span>
+          </button>
+        )}
+        <nav className="admin-pagination"><button className="text-button" onClick={() => void refresh()} disabled={loading}><RefreshCw size={15}/> Odśwież</button></nav>
+      </div>
+      <div className="admin-detail">
+        {!selected || !edit ? <p>Wybierz demo, aby zobaczyć feedback klienta i zmienić status.</p> : <>
+          <h2>{selected.clientLabel}</h2>
+          <p className="admin-meta">ID demo: {selected.id}{selected.sessionId ? ` · sesja: ${selected.sessionId}` : ''}</p>
+          <label>Status<select value={edit.status} onChange={event => setEdit({ ...edit, status: event.target.value as HostedDemoStatus })}>{DEMO_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}</select></label>
+          <label>Adres demo<input value={edit.demoUrl} onChange={event => setEdit({ ...edit, demoUrl: event.target.value })} placeholder="https://mirai-demo-klient.workers.dev"/></label>
+          <label>Adres repo<input value={edit.repoUrl} onChange={event => setEdit({ ...edit, repoUrl: event.target.value })} placeholder="https://github.com/…"/></label>
+          <button className="primary-button" disabled={busy} onClick={() => void save()}>Zapisz</button>
+          <section className="admin-card"><h3>Feedback klienta ({feedback.length})</h3>
+            {feedback.length === 0 ? <p>Klient nie zostawił jeszcze żadnej uwagi.</p> : <ul>{feedback.map(item =>
+              <li key={item.id}><strong>{item.message}</strong><small>{item.page ? `${item.page} · ` : ''}{date(item.createdAt)}</small>
+                {item.handled ? <span className="admin-review">Obsłużone</span> : <button className="small-button" disabled={busy} onClick={() => void markHandled(item.id)}>Oznacz jako obsłużone</button>}
+              </li>
+            )}</ul>}
+          </section>
+        </>}
+      </div>
+    </div>
+  </section>;
+}
+
 export function AdminControlPlane() {
   const [email, setEmail] = useState(''); const [captchaReady, setCaptchaReady] = useState(!captchaRequired); const [access, setAccess] = useState<'loading' | 'anonymous' | 'authorized' | 'expired' | 'forbidden'>('loading');
   const [rows, setRows] = useState<SessionRow[]>([]); const [cursor, setCursor] = useState<string | null>(null); const [cursorHistory, setCursorHistory] = useState<(string | null)[]>([]); const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -89,6 +169,7 @@ export function AdminControlPlane() {
         <nav className="admin-pagination" aria-label="Strony zaproszeń"><button className="text-button" disabled={!invitationCursor} onClick={() => void refreshInvitations(null)}><ChevronLeft size={15}/> Pierwsza strona</button><button className="text-button" disabled={!nextInvitationCursor} onClick={() => void refreshInvitations(nextInvitationCursor)}>Następna <ChevronRight size={15}/></button></nav>
       </div>
     </section>
+    <DemosPanel/>
     <section className="admin-grid">
       <div className="admin-list"><h2>Rozmowy</h2>
         {loading ? <p>Odświeżam listę…</p> : rows.length === 0 ? <p>Nie ma jeszcze rozmów do pokazania.</p> : <>

@@ -27,7 +27,7 @@ export function isAllowedAdminEmail(email: string | undefined, allowed = parseAd
   return Boolean(email && allowed.has(email.trim().toLowerCase()));
 }
 
-function persistenceConfig() {
+export function persistenceConfig() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
