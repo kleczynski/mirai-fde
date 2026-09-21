@@ -9,3 +9,4 @@ Statusy: `testing` → `client_reviewing` → `approved_exclusive` / `declined` 
 
 | Data | Sesja | Klient | Branża | Demo URL | Status | Notatka |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-21 | 00006412-42fa-4e77-9c30-6cfc5627c6ec | Marysia 2 | Dentysta | (uzupełnij po wdrożeniu) | testing | |
