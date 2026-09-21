@@ -9,7 +9,7 @@
 // łączy się bezpośrednio z Supabase tym samym service role key co panel
 // admina, bo to skrypt uruchamiany ręcznie przez operatora na jego maszynie.
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, appendFile } from 'node:fs/promises';
 import path from 'node:path';
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
@@ -72,8 +72,14 @@ async function main() {
   const outPath = path.join(outDir, `${slug}-${sessionId!.slice(0, 8)}.md`);
   await writeFile(outPath, filled, 'utf8');
 
+  const registryPath = path.join(process.cwd(), 'docs/scope/demos.md');
+  const today = new Date().toISOString().slice(0, 10);
+  const row = `| ${today} | ${sessionId} | ${clientLabel} | ${industry} | (uzupełnij po wdrożeniu) | testing | |\n`;
+  await appendFile(registryPath, row, 'utf8');
+
   console.log(filled);
   console.error(`\n---\nZapisano też do: ${outPath}`);
+  console.error(`Dopisano wiersz do ${registryPath} — uzupełnij kolumnę Demo URL ręcznie po wdrożeniu.`);
 }
 
 main().catch(e => { console.error(e instanceof Error ? e.message : e); process.exit(1); });

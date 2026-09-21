@@ -55,11 +55,16 @@ rozmowy discovery. To NOWY, osobny projekt — nie modyfikuj `mirai` ani
    szczodrzejszy, nie usypia projektu jak Supabase). Sięgnij po Supabase
    tylko jeśli demo naprawdę potrzebuje relacyjnego Postgresa/RLS/czegoś
    czego D1 sensownie nie da — jeśli tak, powiedz dlaczego.
-4. **Dodaj lekki "agent Mirai"** wbudowany w demo: prosty czat albo formularz
-   ("Co sądzisz? Co byś zmienił?"), który zbiera sugestie od osoby
-   testującej demo i zapisuje je gdzieś, gdzie operator łatwo je zobaczy
-   (wystarczy tabela D1 czytana przez `wrangler d1 execute`, albo webhook do
-   Slacka/Telegrama operatora — wybierz najprostsze).
+4. **Dodaj lekki "agent Mirai"** wbudowany w demo: jedno proste pole tekstowe
+   albo mały czat ("Co sądzisz? Co byś zmienił?") widoczne na każdym ekranie
+   demo. **Wystarczy, że osoba testująca może to tylko napisać — nie buduj
+   zaznaczania/adnotowania konkretnych elementów UI, to niepotrzebna
+   złożoność.** Zapisz każdą wiadomość jako prosty rekord: treść + znacznik
+   czasu (opcjonalnie: który ekran/URL demo, jeśli to trywialne). Trzymaj to
+   w jednej, przewidywalnej tabeli D1 (np. `feedback(id, message, page,
+   created_at)`) czytanej przez `wrangler d1 execute` — nie webhookiem do
+   Slacka/Telegrama, bo kolejny prompt (`iterate-demo-from-feedback.md`) ma
+   to później odczytać automatycznie, a rozproszony webhook to utrudnia.
 5. Nie buduj panelu admina, CI/CD, testów e2e ani formalnej dokumentacji dla
    tego demo — to jednorazowy, szybki artefakt na potrzeby jednej rozmowy z
    klientem, nie produkt platformowy.

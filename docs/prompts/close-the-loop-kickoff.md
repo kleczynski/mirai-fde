@@ -1,5 +1,13 @@
 # Kickoff prompt — Astra, domknięcie pętli demo→feedback→wyłączność
 
+> **Status: zrealizowane bezpośrednio 2026-09-21, ten plik zostaje jako
+> zapis decyzji, nie jako zadanie do zlecenia.** Rejestr (`docs/scope/demos.md`),
+> jego auto-dopisywanie w `generate-demo-prompt.ts`, oraz
+> `docs/prompts/promote-demo-to-exclusive.md` i
+> `docs/prompts/iterate-demo-from-feedback.md` już istnieją — to były na tyle
+> małe, dobrze zdefiniowane kawałki, że zrobiono je wprost zamiast przez
+> Astrę, żeby nie powtórzyć skali incydentu z Brief Studio.
+>
 > Wklej jako pierwszą wiadomość do Astry. Napisane 2026-09-21, po incydencie
 > z "Brief Studio" (patrz historia: Astra zbudowała i wdrożyła cały Node 2
 > jako osobny serwis, trzeba było to w całości cofnąć — Worker, tabele
