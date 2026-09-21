@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { createVoiceSession, extractInterview, getRuntimeConfig, HttpError, recordVoiceTelemetry } from './agent.js';
 import { createAdminInvitation, createAdminNote, deleteAdminSession, exportAdminSession, getAdminSession, listAdminInvitations, listAdminSessions } from './admin.js';
+import { getHostedDemoDetail, listHostedDemos, markDemoFeedbackHandled, submitDemoFeedback, updateHostedDemo } from './demos.js';
 import { getAdminVoiceTrace } from './voice-trace.js';
 import { checkAdminVoiceHealth } from './voice-health.js';
 const app = express();
@@ -47,6 +48,23 @@ app.post('/api/admin/session-trace', async (req, res) => {
 });
 app.post('/api/admin/voice-health', async (req, res) => {
   res.json(await checkAdminVoiceHealth({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
+});
+app.get('/api/admin/hosted-demos', async (req, res) => {
+  res.json(await listHostedDemos({ authorization: req.headers.authorization, body: {}, query: req.query, clientIp: req.ip }));
+});
+app.post('/api/admin/hosted-demo-detail', async (req, res) => {
+  res.json(await getHostedDemoDetail({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
+});
+app.post('/api/admin/hosted-demo-update', async (req, res) => {
+  res.json(await updateHostedDemo({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
+});
+app.post('/api/admin/hosted-demo-feedback-handled', async (req, res) => {
+  res.json(await markDemoFeedbackHandled({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
+});
+app.options('/api/demo-feedback', (_req, res) => { res.setHeader('Access-Control-Allow-Origin', '*'); res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS'); res.setHeader('Access-Control-Allow-Headers', 'Content-Type'); res.status(204).end(); });
+app.post('/api/demo-feedback', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.json(await submitDemoFeedback({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
 });
 const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist');
 app.use(express.static(dist, { setHeaders: res => res.setHeader('Cache-Control', 'public, max-age=0') }));

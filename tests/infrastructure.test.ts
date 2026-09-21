@@ -1,9 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { endpoint, type VercelRequest, type VercelResponse } from '../server/vercel';
 
 const root = new URL('../', import.meta.url);
+
+/** Every file under api/**\/*.ts (excluding dynamic-route helpers already
+ * counted by their bracket file) becomes one Vercel Serverless Function.
+ * The Hobby plan caps a deployment at 12 — this walks the real directory so
+ * adding a new top-level api/*.ts file without noticing the count is a test
+ * failure here, not a broken production deploy discovered after the fact. */
+function countApiFunctions(dir: URL): number {
+  let count = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const entryUrl = new URL(`${entry.name}${entry.isDirectory() ? '/' : ''}`, dir);
+    if (entry.isDirectory()) count += countApiFunctions(entryUrl);
+    else if (entry.name.endsWith('.ts')) count += 1;
+  }
+  return count;
+}
 
 describe('production infrastructure', () => {
   it('uses the EU Vercel region and keeps API functions bounded', () => {
@@ -12,9 +27,16 @@ describe('production infrastructure', () => {
     expect(config.regions).toEqual(['fra1']);
     expect(config.functions['api/extract.ts'].maxDuration).toBeLessThanOrEqual(60);
     expect(config.functions['api/voice/token.ts'].maxDuration).toBeLessThanOrEqual(30);
-    for (const path of ['api/config.ts', 'api/extract.ts', 'api/voice/token.ts', 'api/admin/sessions.ts', 'api/admin/session.ts', 'api/admin/session-trace.ts', 'api/admin/voice-health.ts', 'api/admin/delete-session.ts']) {
+    for (const path of ['api/config.ts', 'api/extract.ts', 'api/voice/token.ts', 'api/demo-feedback.ts', 'api/admin/[route].ts']) {
       expect(existsSync(new URL(path, root)), `${path} must be deployed`).toBe(true);
     }
+  });
+
+  it('stays within the Vercel Hobby plan limit of 12 Serverless Functions', () => {
+    // Consolidate any new admin route into api/admin/[route].ts instead of
+    // adding another top-level api/*.ts file — see its file header for why.
+    const count = countApiFunctions(new URL('api/', root));
+    expect(count).toBeLessThanOrEqual(12);
   });
 
   it('ships browser security policy for microphone and third-party APIs', () => {

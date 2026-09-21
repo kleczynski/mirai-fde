@@ -9,11 +9,15 @@
     "api/voice/token.ts": {
       "maxDuration": 30
     },
-    "api/admin/delete-session.ts": {
-      "maxDuration": 15
+    "api/admin/[route].ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
+    {
+      "source": "/api/admin/:route",
+      "destination": "/api/admin/[route]?route=:route"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
