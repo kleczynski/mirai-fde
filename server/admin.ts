@@ -157,13 +157,15 @@ export async function createAdminInvitation(input: ApiInput) {
   return { invitation: data, path: `/invite/${token}` };
 }
 
-export async function getAdminSession(input: ApiInput): Promise<{ session: InterviewSession; runs: unknown[]; evaluations: unknown[]; operatorNotes: unknown[] }> {
+export async function getAdminSession(input: ApiInput): Promise<{ session: InterviewSession; runs: unknown[]; evaluations: unknown[]; operatorNotes: unknown[]; confirmedAt: string | null }> {
   const { service } = await requireAdmin(input);
   const { sessionId } = SessionIdSchema.parse(input.body);
-  const { data, error } = await service.from('interview_sessions').select('state, agent_runs(*), evaluations(*), operator_notes(*)').eq('id', sessionId).gt('expires_at', new Date().toISOString()).maybeSingle();
+  const { data, error } = await service.from('interview_sessions').select('state, agent_runs(*), evaluations(*), operator_notes(*), session_summaries(confirmed_at)').eq('id', sessionId).gt('expires_at', new Date().toISOString()).maybeSingle();
   if (error) throw new HttpError(503, 'Nie udało się odczytać sesji.');
   if (!data) throw new HttpError(404, 'Nie znaleziono sesji.');
-  return { session: SessionSchema.parse(data.state), runs: data.agent_runs ?? [], evaluations: data.evaluations ?? [], operatorNotes: data.operator_notes ?? [] };
+  const summary = Array.isArray(data.session_summaries) ? data.session_summaries[0] : data.session_summaries;
+  const confirmedAt = summary && typeof summary === 'object' && typeof (summary as { confirmed_at?: unknown }).confirmed_at === 'string' ? (summary as { confirmed_at: string }).confirmed_at : null;
+  return { session: SessionSchema.parse(data.state), runs: data.agent_runs ?? [], evaluations: data.evaluations ?? [], operatorNotes: data.operator_notes ?? [], confirmedAt };
 }
 
 export async function createAdminNote(input: ApiInput) {
@@ -186,21 +188,31 @@ export async function createAdminNote(input: ApiInput) {
  * Mirrors the participant's own fallback: model extraction when configured,
  * otherwise the deterministic rule engine. Never sets status='completed' —
  * that stays the participant's exclusive action via save_interview.
+ *
+ * If a result already exists but was never confirmed by the participant
+ * (session_summaries.confirmed_at is null — e.g. finish()'s own same-turn
+ * evidence-rules fallback landed before a model extraction could), this also
+ * allows replacing that unconfirmed draft (admin_apply_extraction's
+ * p_allow_replace, supabase/migrations/20260922140000_admin_extraction_allow_replace.sql).
+ * A confirmed result is never touched.
  */
 export async function retryAdminExtraction(input: ApiInput): Promise<{ retried: true; method: 'evidence-rules' | 'language-model' }> {
   const { admin, service } = await requireAdmin(input);
   const { sessionId } = SessionIdSchema.parse(input.body);
-  const { data, error } = await service.from('interview_sessions').select('state').eq('id', sessionId).maybeSingle();
+  const { data, error } = await service.from('interview_sessions').select('state, session_summaries(confirmed_at)').eq('id', sessionId).maybeSingle();
   if (error) throw new HttpError(503, 'Nie udało się odczytać sesji.');
   if (!data) throw new HttpError(404, 'Nie znaleziono sesji.');
   const session = SessionSchema.parse(data.state);
   if (!session.completedAt) throw new HttpError(409, 'Rozmowa nie jest jeszcze zakończona.');
-  if (session.result) throw new HttpError(409, 'Wynik ekstrakcji już istnieje dla tej sesji.');
+  const summary = Array.isArray(data.session_summaries) ? data.session_summaries[0] : data.session_summaries;
+  const confirmed = Boolean(summary && typeof summary === 'object' && (summary as { confirmed_at?: unknown }).confirmed_at);
+  if (session.result && confirmed) throw new HttpError(409, 'Wynik został już potwierdzony przez uczestnika.');
   const result = process.env.OPENAI_API_KEY ? await computeModelExtraction(session) : extractWithRules(session);
   const { error: rpcError } = await service.rpc('admin_apply_extraction', {
     p_actor_id: admin.id,
     p_session_id: session.id,
     p_result: result,
+    p_allow_replace: Boolean(session.result),
   });
   if (rpcError) throw new HttpError(503, 'Nie udało się zapisać wyniku ekstrakcji.');
   return { retried: true, method: result.extraction.method };

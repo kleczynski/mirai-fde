@@ -16,8 +16,11 @@ async function asService() { await db.exec(`reset role; select set_config('test.
 async function asSuperuser() { await db.exec('reset role'); }
 
 async function save(session: unknown) { return db.query('select public.save_interview($1::jsonb)', [JSON.stringify(session)]); }
-async function applyExtraction(actorId: string, sessionId: string, result: unknown) {
-  return db.query('select public.admin_apply_extraction($1,$2,$3::jsonb)', [actorId, sessionId, JSON.stringify(result)]);
+async function applyExtraction(actorId: string, sessionId: string, result: unknown, allowReplace = false) {
+  return db.query('select public.admin_apply_extraction($1,$2,$3::jsonb,$4)', [actorId, sessionId, JSON.stringify(result), allowReplace]);
+}
+async function confirmSummary(sessionId: string) {
+  await db.exec(`update session_summaries set confirmed_at = now() where session_id = '${sessionId}'`);
 }
 
 function stuckSession() {
@@ -48,6 +51,7 @@ beforeAll(async () => {
   await db.exec(readFileSync('supabase/migrations/20260917110000_monitoring.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20260917120000_fix_save_interview_normalization.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20260922130000_admin_extraction_recovery.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20260922140000_admin_extraction_allow_replace.sql', 'utf8'));
 }, 30000);
 afterAll(async () => { await db.close(); });
 
@@ -119,6 +123,55 @@ describe.sequential('admin_apply_extraction — recovering a stuck review sessio
   });
 });
 
+describe.sequential('admin_apply_extraction — replacing an unconfirmed draft', () => {
+  it('still refuses to overwrite when p_allow_replace is omitted (defaults to false)', async () => {
+    const session = stuckSession();
+    await asOwner();
+    await save(session);
+    const draft = extractWithRules(session);
+    await asService();
+    await applyExtraction(adminId, session.id, draft);
+    await expect(applyExtraction(adminId, session.id, draft)).rejects.toThrow('Result already exists');
+  });
+
+  it('replaces an unconfirmed draft when p_allow_replace is true, bumping revision and keeping status', async () => {
+    const session = stuckSession();
+    await asOwner();
+    await save(session);
+    const weakDraft = extractWithRules(session);
+    await asService();
+    await applyExtraction(adminId, session.id, weakDraft);
+
+    const better = structuredClone(weakDraft);
+    better.extraction = { method: 'language-model', model: 'gpt-4.1-mini', generatedAt: new Date().toISOString() };
+    await applyExtraction(adminId, session.id, better, true);
+
+    await asSuperuser();
+    const row = (await db.query<{ state: unknown; status: string; revision: number }>('select state, status, revision from interview_sessions where id=$1', [session.id])).rows[0];
+    expect(row.status).toBe('review');
+    expect(row.revision).toBe(3);
+    const parsed = SessionSchema.parse(row.state);
+    expect(parsed.result?.extraction.method).toBe('language-model');
+    const summary = (await db.query<{ confirmed_at: string | null }>('select confirmed_at from session_summaries where session_id=$1', [session.id])).rows[0];
+    expect(summary.confirmed_at).toBeNull();
+    const runs = await db.query<{ version: number }>('select version from agent_runs where session_id=$1 and kind=$2 order by version', [session.id, 'extraction']);
+    expect(runs.rows.map(r => r.version)).toEqual([1, 2]);
+  });
+
+  it('refuses to replace once the participant has confirmed the result', async () => {
+    const session = stuckSession();
+    await asOwner();
+    await save(session);
+    const draft = extractWithRules(session);
+    await asService();
+    await applyExtraction(adminId, session.id, draft);
+    await asSuperuser();
+    await confirmSummary(session.id);
+    await asService();
+    await expect(applyExtraction(adminId, session.id, draft, true)).rejects.toThrow('Result already confirmed by participant');
+  });
+});
+
 describe('admin_session_actions.action constraint', () => {
   it('accepts the new extraction-recovery action alongside the existing deletion action', async () => {
     await asSuperuser();
@@ -128,11 +181,18 @@ describe('admin_session_actions.action constraint', () => {
 });
 
 describe('admin_apply_extraction migration — locked to service_role', () => {
-  const migration = readFileSync('supabase/migrations/20260922130000_admin_extraction_recovery.sql', 'utf8');
-  it('is security definer and unavailable to browser roles', () => {
-    expect(migration).toContain('create function public.admin_apply_extraction');
-    expect(migration).toContain('security definer');
-    expect(migration).toContain('revoke all on function public.admin_apply_extraction(uuid, uuid, jsonb) from public, anon, authenticated');
-    expect(migration).toContain('grant execute on function public.admin_apply_extraction(uuid, uuid, jsonb) to service_role');
+  const original = readFileSync('supabase/migrations/20260922130000_admin_extraction_recovery.sql', 'utf8');
+  const replaceMigration = readFileSync('supabase/migrations/20260922140000_admin_extraction_allow_replace.sql', 'utf8');
+  it('the original 3-arg function was security definer and locked to service_role', () => {
+    expect(original).toContain('create function public.admin_apply_extraction');
+    expect(original).toContain('security definer');
+    expect(original).toContain('revoke all on function public.admin_apply_extraction(uuid, uuid, jsonb) from public, anon, authenticated');
+    expect(original).toContain('grant execute on function public.admin_apply_extraction(uuid, uuid, jsonb) to service_role');
+  });
+  it('the replacing 4-arg function drops the old signature and stays security definer, locked to service_role', () => {
+    expect(replaceMigration).toContain('drop function if exists public.admin_apply_extraction(uuid, uuid, jsonb)');
+    expect(replaceMigration).toContain('security definer');
+    expect(replaceMigration).toContain('revoke all on function public.admin_apply_extraction(uuid, uuid, jsonb, boolean) from public, anon, authenticated');
+    expect(replaceMigration).toContain('grant execute on function public.admin_apply_extraction(uuid, uuid, jsonb, boolean) to service_role');
   });
 });
