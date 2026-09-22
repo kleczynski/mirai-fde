@@ -126,6 +126,11 @@ export function useInterview() {
     let extractionError = '';
     if (config.extraction && checkpointSaved && !s.result) {
       try {
+        // Server-side this can take up to ~58s (see server/agent.ts computeModelExtraction)
+        // and the hosting function itself is capped at maxDuration:60 (vercel.json) — this
+        // client timeout must stay above that ceiling so the browser never gives up before
+        // the server's own limit would have, but there is no point pushing it much further:
+        // anything past 60s server-side has already been killed by the platform.
         const response = await fetch('/api/extract', { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ sessionId: s.id }), signal: AbortSignal.timeout(65000) });
         if (!response.ok) throw new Error('Nie udało się wykonać analizy AI. Pokazujemy wnioski oparte na dosłownych odpowiedziach.');
         result = DiscoverySchema.parse(await response.json());
