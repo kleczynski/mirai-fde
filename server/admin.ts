@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { SessionSchema, type InterviewSession } from '../src/domain/contract.js';
 import { extractWithRules } from '../src/domain/extraction.js';
 import { computeModelExtraction, HttpError, type ApiInput } from './agent.js';
+import { buildDemoPrompt } from './demo-prompt.js';
 
 const SessionIdSchema = z.object({ sessionId: z.uuid() });
 const ListSchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(25), cursor: z.uuid().optional() });
@@ -216,6 +217,25 @@ export async function retryAdminExtraction(input: ApiInput): Promise<{ retried: 
   });
   if (rpcError) throw new HttpError(503, 'Nie udało się zapisać wyniku ekstrakcji.');
   return { retried: true, method: result.extraction.method };
+}
+
+/**
+ * Lets the operator get the demo-build prompt (docs/prompts/build-and-deploy-demo.md,
+ * filled from this session's real extraction result) straight from the admin
+ * panel, instead of needing terminal access to run
+ * scripts/generate-demo-prompt.ts. Deliberately does not require
+ * status==='completed' — see buildDemoPrompt's own comment for why that
+ * would have meant either an admin "mark completed" button (undermining the
+ * participant-only confirmation boundary) or leaving the operator stuck on
+ * the CLI. The returned `confirmed` flag tells the caller whether the
+ * underlying result was participant-confirmed; the generated prompt text
+ * itself already carries an explicit warning when it isn't.
+ */
+export async function generateAdminDemoPrompt(input: ApiInput): Promise<{ demoId: string; prompt: string; confirmed: boolean }> {
+  const { service } = await requireAdmin(input);
+  const { sessionId } = SessionIdSchema.parse(input.body);
+  const { demoId, filled, confirmed } = await buildDemoPrompt(service, sessionId);
+  return { demoId, prompt: filled, confirmed };
 }
 
 export async function exportAdminSession(input: ApiInput) {

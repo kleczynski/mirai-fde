@@ -122,6 +122,7 @@ type OperatorNote = {
 | `POST /api/admin/session-trace` | `{ sessionId, runId }` | odczyt śladu ElevenLabs powiązanego z niewygasłą sesją i uruchomieniem głosowym; bez audio i sekretów |
 | `POST /api/admin/delete-session` | `{ sessionId }` | `{ deleted: true }`, z istniejącym atomowym audytem |
 | `POST /api/admin/session-retry-extraction` | `{ sessionId }` | `{ retried: true, method: 'evidence-rules' \| 'language-model' }` |
+| `POST /api/admin/session-demo-prompt` | `{ sessionId }` | `{ demoId, prompt, confirmed }` — wypełniony `docs/prompts/build-and-deploy-demo.md` |
 
 `cursor` jest identyfikatorem ostatniej pozycji poprzedniej strony. Przy równym czasie serwer porządkuje po `id`, aby nie gubić ani nie powielać rekordów.
 
@@ -142,8 +143,31 @@ Wynik zapisuje przez `service`-rolową funkcję SQL `public.admin_apply_extracti
 | Stan | Kod | Treść błędu |
 | --- | --- | --- |
 | Rozmowa jeszcze nie zakończona (`completedAt` puste) | 409 | `Rozmowa nie jest jeszcze zakończona.` |
-| Wynik ekstrakcji już istnieje | 409 | `Wynik ekstrakcji już istnieje dla tej sesji.` |
+| Wynik już istnieje i jest potwierdzony przez uczestnika | 409 | `Wynik został już potwierdzony przez uczestnika.` |
 | Ekstrakcja/SQL nie powiodła się | 503 | `Nie udało się zapisać wyniku ekstrakcji.` |
+
+Jeśli wynik już istnieje, ale NIE jest jeszcze potwierdzony
+(`session_summaries.confirmed_at` to `null`), endpoint go **podmienia**
+zamiast odrzucać — woła `admin_apply_extraction` z `p_allow_replace: true`
+(`supabase/migrations/20260922140000_admin_extraction_allow_replace.sql`).
+Potwierdzony wynik nigdy nie jest ruszany, niezależnie od tej flagi.
+
+### `POST /api/admin/session-demo-prompt` — prompt budowy demo bez terminala
+
+Wywołuje `buildDemoPrompt()` (`server/demo-prompt.ts`), tę samą funkcję co
+CLI `scripts/generate-demo-prompt.ts`. Wymaga TYLKO `completedAt` i
+istniejącego `result` — świadomie NIE wymaga `status==='completed'` (patrz
+AGENTS.md §9 po uzasadnienie: admin nie ma i nie powinien mieć przycisku
+"ustaw completed"). Rejestruje albo reużywa wiersz w `hosted_demos`
+(`status='building'`) i zwraca wypełniony `docs/prompts/build-and-deploy-demo.md`
+razem z flagą `confirmed` mówiącą, czy uczestnik zdążył już potwierdzić
+wynik. Gdy `confirmed` jest `false`, sam tekst promptu zawiera dodatkowo
+widoczne ostrzeżenie dla agenta budującego demo.
+
+| Stan | Kod | Treść błędu |
+| --- | --- | --- |
+| Rozmowa jeszcze nie zakończona | 409 | `Rozmowa nie jest jeszcze zakończona.` |
+| Brak wyniku ekstrakcji | 409 | `Brak wyniku ekstrakcji dla tej sesji — najpierw uruchom ekstrakcję.` |
 
 ## Eksport dla kolejnego agenta
 

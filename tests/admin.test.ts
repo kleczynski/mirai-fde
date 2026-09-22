@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { HttpError } from '../server/agent';
-import { isAllowedAdminEmail, listAdminSessions, parseAdminEmails, retryAdminExtraction } from '../server/admin';
+import { generateAdminDemoPrompt, isAllowedAdminEmail, listAdminSessions, parseAdminEmails, retryAdminExtraction } from '../server/admin';
 
 describe('admin identity allowlist', () => {
   it('normalizes the server-side magic-link email allowlist', () => {
@@ -19,6 +19,7 @@ describe('admin identity allowlist', () => {
   it('does not reach privileged persistence before authentication', async () => {
     await expect(listAdminSessions({ body: {} })).rejects.toEqual(new HttpError(401, 'Wymagane logowanie administratora.'));
     await expect(retryAdminExtraction({ body: { sessionId: '00000000-0000-4000-8000-000000000000' } })).rejects.toEqual(new HttpError(401, 'Wymagane logowanie administratora.'));
+    await expect(generateAdminDemoPrompt({ body: { sessionId: '00000000-0000-4000-8000-000000000000' } })).rejects.toEqual(new HttpError(401, 'Wymagane logowanie administratora.'));
   });
 
   it('keeps administrative deletion atomic and unavailable to browser roles', () => {
