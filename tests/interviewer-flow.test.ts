@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createSession, createTurn, deriveInterviewProgress, nextAdaptiveQuestion, classifyAgentQuestion, resolveTurnQuestionId, NON_DISCOVERY_QUESTION_ID, evaluateConversationQuality } from '../src/domain/interview';
+import { createSession, createTurn, deriveInterviewProgress, nextAdaptiveQuestion, classifyAgentQuestion, resolveTurnQuestionId, NON_DISCOVERY_QUESTION_ID, evaluateConversationQuality, questions } from '../src/domain/interview';
 import { extractWithRules, validateAgainstSession } from '../src/domain/extraction';
 
 const answer = (session: ReturnType<typeof createSession>, questionId: string, text: string) =>
@@ -231,5 +231,99 @@ describe('turn tagging, regression: "Marysia 2" repeated pain question (2026-09-
     expect(deriveInterviewProgress(turns).coverage.pain).toBe('missing');
     const withoutSkipFlag = nextAdaptiveQuestion(turns, deriveInterviewProgress(turns));
     expect(withoutSkipFlag?.id).toBe('pain');
+  });
+});
+
+describe('classifyAgentQuestion, regression: "Ania Zając" workflow follow-ups misclassified as non-discovery (2026-09-22)', () => {
+  // Real incident: a lawyer's session had the agent naturally drive the workflow
+  // topic forward with "what did you do next / right after X / what's the next
+  // step" phrasing instead of the original scripted "krok po kroku" wording. None
+  // of these 9 verbatim agent turns matched any rule in classifyAgentQuestion, so
+  // they all fell through to NON_DISCOVERY_QUESTION_ID even though they are
+  // exactly the 'workflow' category: they are what drove the participant to
+  // describe her process step by step. As a result coverage.workflow stayed
+  // "missing" for the whole conversation, evaluateConversationQuality() counted
+  // 16 of 21 agent turns as excluded filler, and extractWithRules() (which
+  // filters strictly on questionId === 'workflow') returned workflows: [].
+  const workflowFollowUps = [
+    'Co dokładnie zrobiłeś jako pierwszy krok, gdy klient opisał Ci problem?',
+    'Słucham Cię. Co zrobiłeś zaraz po spisaniu tych informacji w tej ostatniej sprawie?',
+    'A co robisz zaraz po dobraniu przepisów do tej sytuacji? Jaki jest następny krok w Twojej pracy?',
+    'Dobra. A co robisz, gdy już znajdziesz odpowiednie orzecznictwo? Jak wygląda kolejny krok w tej konkretnej sprawie?',
+    'Słucham Cię. Co zrobiłeś dalej po znalezieniu tego orzecznictwa w tej ostatniej sprawie?',
+    'Jasne. A co robisz zaraz po sporządzeniu tego projektu pisma? Czy wysyłasz go od razu do klienta, czy jeszcze coś sprawdzasz?',
+    'Jasne. A co dzieje się z tym projektem pisma, gdy już uzupełnisz wszystkie szczegółowe dane? Czy wysyłasz go wtedy do klienta, czy czekasz na jego wizytę?',
+    'Jasne. A co robisz w momencie, gdy klient wyrazi tę akceptację? Czy wysyłasz pismo samodzielnie, czy robi to ktoś inny?',
+    'Dobra. Czyli cały ten proces od spisania informacji, przez analizę i szukanie orzecznictwa, aż po wysłanie pisma, powtarza się przy każdej sprawie i zajmuje Ci dużo czasu, czy może chodzi o coś innego, co jest w tym uciążliwe?',
+  ];
+
+  it.each(workflowFollowUps)('classifies "%s" as workflow, not non-discovery', text => {
+    expect(classifyAgentQuestion(text)).toBe('workflow');
+    expect(classifyAgentQuestion(text)).not.toBe(NON_DISCOVERY_QUESTION_ID);
+  });
+
+  it('still classifies the scripted "co dzieje się potem" impact question as impact, not workflow', () => {
+    // Documents the intentional boundary: "co dzieje się POTEM" (consequence) stays
+    // 'impact'; only "co dzieje się z X, gdy już Y" (next-step continuation) is 'workflow'.
+    const impactQuestion = questions.find(q => q.id === 'impact')!.text;
+    expect(impactQuestion).toBe('Co dzieje się potem, gdy coś nie idzie zgodnie z planem?');
+    expect(classifyAgentQuestion(impactQuestion)).toBe('impact');
+    expect(classifyAgentQuestion(impactQuestion)).not.toBe('workflow');
+  });
+
+  it('drives coverage.workflow to "covered" and extractWithRules().workflows to non-empty over the full replayed transcript', () => {
+    const session = createSession('voice');
+    let turns: ReturnType<typeof createTurn>[] = [];
+    const say = (speaker: 'agent' | 'participant', text: string) => {
+      const questionId = resolveTurnQuestionId(speaker, text, turns, deriveInterviewProgress(turns));
+      turns = [...turns, createTurn(speaker, text, session, questionId)];
+    };
+
+    say('agent', 'Czym się zajmujesz? Opowiedz o swojej pracy własnymi słowami.');
+    say('participant', 'Jestem prawnikiem, prowadzę własną kancelarię i reprezentuję klientów w sprawach cywilnych.');
+
+    say('agent', 'Co dokładnie zrobiłeś jako pierwszy krok, gdy klient opisał Ci problem?');
+    say('participant', 'Najpierw spisuję wszystkie informacje, które przekazał mi klient, żeby niczego nie pominąć.');
+
+    say('agent', 'Słucham Cię. Co zrobiłeś zaraz po spisaniu tych informacji w tej ostatniej sprawie?');
+    say('participant', 'Zaraz po tym dobieram przepisy, które pasują do sytuacji opisanej przez klienta.');
+
+    say('agent', 'A co robisz zaraz po dobraniu przepisów do tej sytuacji? Jaki jest następny krok w Twojej pracy?');
+    say('participant', 'Następnie szukam orzecznictwa, które potwierdza moją interpretację tych przepisów.');
+
+    say('agent', 'Dobra. A co robisz, gdy już znajdziesz odpowiednie orzecznictwo? Jak wygląda kolejny krok w tej konkretnej sprawie?');
+    say('participant', 'Analizuję znalezione orzeczenia i przygotowuję notatkę z wnioskami dla siebie.');
+
+    say('agent', 'Słucham Cię. Co zrobiłeś dalej po znalezieniu tego orzecznictwa w tej ostatniej sprawie?');
+    say('participant', 'Dalej sporządzam projekt pisma procesowego na podstawie tej analizy.');
+
+    say('agent', 'Jasne. A co robisz zaraz po sporządzeniu tego projektu pisma? Czy wysyłasz go od razu do klienta, czy jeszcze coś sprawdzasz?');
+    say('participant', 'Sprawdzam projekt jeszcze raz i uzupełniam brakujące dane szczegółowe klienta.');
+
+    say('agent', 'Jasne. A co dzieje się z tym projektem pisma, gdy już uzupełnisz wszystkie szczegółowe dane? Czy wysyłasz go wtedy do klienta, czy czekasz na jego wizytę?');
+    say('participant', 'Wysyłam gotowy projekt do klienta mailem i czekam na jego akceptację treści.');
+
+    say('agent', 'Jasne. A co robisz w momencie, gdy klient wyrazi tę akceptację? Czy wysyłasz pismo samodzielnie, czy robi to ktoś inny?');
+    say('participant', 'Sam wysyłam wtedy ostateczne pismo do sądu albo do drugiej strony.');
+
+    say('agent', 'Dobra. Czyli cały ten proces od spisania informacji, przez analizę i szukanie orzecznictwa, aż po wysłanie pisma, powtarza się przy każdej sprawie i zajmuje Ci dużo czasu, czy może chodzi o coś innego, co jest w tym uciążliwe?');
+    say('participant', 'Tak, ten cały proces zajmuje mi bardzo dużo czasu i powtarza się niemal identycznie przy każdej sprawie.');
+
+    // Every workflow follow-up agent turn must have been tagged 'workflow', not the sentinel.
+    const agentWorkflowTurns = turns.filter(t => t.speaker === 'agent').slice(1);
+    for (const turn of agentWorkflowTurns) {
+      expect(turn.questionId).toBe('workflow');
+      expect(turn.questionId).not.toBe(NON_DISCOVERY_QUESTION_ID);
+    }
+
+    const progress = deriveInterviewProgress(turns);
+    expect(progress.coverage.workflow).toBe('covered'); // was 'missing' before the fix
+
+    const quality = evaluateConversationQuality(turns);
+    expect(quality.excludedTechnicalOrFiller).toBe(0); // was 8 non-discovery misfires before the fix
+
+    session.turns = turns;
+    const result = extractWithRules(session);
+    expect(result.workflows.length).toBeGreaterThan(0); // was [] before the fix
   });
 });

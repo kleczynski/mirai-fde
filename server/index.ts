@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { createVoiceSession, extractInterview, getRuntimeConfig, HttpError, recordVoiceTelemetry } from './agent.js';
-import { createAdminInvitation, createAdminNote, deleteAdminSession, exportAdminSession, getAdminSession, listAdminInvitations, listAdminSessions } from './admin.js';
+import { createAdminInvitation, createAdminNote, deleteAdminSession, exportAdminSession, getAdminSession, listAdminInvitations, listAdminSessions, retryAdminExtraction } from './admin.js';
 import { getHostedDemoDetail, listHostedDemos, markDemoFeedbackHandled, submitDemoFeedback, updateHostedDemo } from './demos.js';
 import { getAdminVoiceTrace } from './voice-trace.js';
 import { checkAdminVoiceHealth } from './voice-health.js';
@@ -42,6 +42,9 @@ app.post('/api/admin/session-note', async (req, res) => {
 });
 app.post('/api/admin/session-export', async (req, res) => {
   res.json(await exportAdminSession({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
+});
+app.post('/api/admin/session-retry-extraction', async (req, res) => {
+  res.json(await retryAdminExtraction({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
 });
 app.post('/api/admin/session-trace', async (req, res) => {
   res.json(await getAdminVoiceTrace({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));

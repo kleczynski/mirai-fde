@@ -16,7 +16,7 @@
     "build": "tsc --noEmit && vite build",
     "start": "tsx server/index.ts",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "vitest run tests/domain.test.ts tests/database.test.ts tests/scene.test.ts tests/scene-transitions.test.ts tests/interviewer-flow.test.ts tests/admin.test.ts tests/admin-router.test.ts tests/demos.test.ts tests/voice-focus.test.ts tests/voice-evidence.test.ts tests/voice-closing.test.ts tests/voice-evaluation.test.ts tests/voice-trace.test.ts tests/infrastructure.test.ts",
+    "test": "vitest run tests/domain.test.ts tests/database.test.ts tests/admin-extraction-recovery.test.ts tests/scene.test.ts tests/scene-transitions.test.ts tests/interviewer-flow.test.ts tests/admin.test.ts tests/admin-router.test.ts tests/demos.test.ts tests/voice-focus.test.ts tests/voice-evidence.test.ts tests/voice-closing.test.ts tests/voice-evaluation.test.ts tests/voice-trace.test.ts tests/infrastructure.test.ts",
     "test:e2e": "playwright test",
     "schema": "tsx scripts/export-schema.ts",
     "schema:build-brief": "tsx scripts/export-build-brief-schema.ts",

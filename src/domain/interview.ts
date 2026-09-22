@@ -201,7 +201,7 @@ export function classifyAgentQuestion(text: string): string | null {
     ['exceptions', /wyjąt|kiedy.*inaczej|nietypow|utrudnił.*rozwiąz/i],
     ['inputs', /na początku|dane wejściowe|czego potrzeb|co.*powstać.*końcu|rezultat/i],
     ['tools', /narzędz|system|aplikac|arkusz|co pomaga|notatk.*papier/i],
-    ['workflow', /krok po kroku|jak przebiega|powtarzaln.*proces|robisz regularnie|przygotowanie do|ostatni.*przypad/i],
+    ['workflow', /krok po kroku|jak przebiega|powtarzaln.*proces|robisz regularnie|przygotowanie do|ostatni.*przypad|pierwszy krok|kolejny krok|następny krok|(?:zaraz|dalej) po|dzieje się z|w momencie,? gdy|proces.*powtarza/i],
     ['pain', /frustr|trudno|problem|iryt|ostatni.*sytuac/i],
     ['impact', /konsekwenc|wpływ|opóźni|co dzieje się potem/i],
     ['goal', /sukces|uproszcz|uprościć|poznasz|wybierzesz|zmiana.*udała|ułatwić|pomogłoby.*uniknąć/i],

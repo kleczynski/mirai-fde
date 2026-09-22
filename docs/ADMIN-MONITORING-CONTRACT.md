@@ -121,12 +121,54 @@ type OperatorNote = {
 | `POST /api/admin/session-export` | `{ sessionId }` | bezpieczna paczka kontekstu dla kolejnego agenta |
 | `POST /api/admin/session-trace` | `{ sessionId, runId }` | odczyt śladu ElevenLabs powiązanego z niewygasłą sesją i uruchomieniem głosowym; bez audio i sekretów |
 | `POST /api/admin/delete-session` | `{ sessionId }` | `{ deleted: true }`, z istniejącym atomowym audytem |
+| `POST /api/admin/session-retry-extraction` | `{ sessionId }` | `{ retried: true, method: 'evidence-rules' \| 'language-model' }` |
 
 `cursor` jest identyfikatorem ostatniej pozycji poprzedniej strony. Przy równym czasie serwer porządkuje po `id`, aby nie gubić ani nie powielać rekordów.
+
+### `POST /api/admin/session-retry-extraction` — naprawa utkniętej ekstrakcji
+
+Discovery Interview kończy się dwoma osobnymi zapisami: najpierw `status:'review'` z `completedAt`, potem osobno policzony `result`/`modelResult`. Jeśli przeglądarka uczestnika zamknie się albo padnie między tymi dwoma zapisami (np. `/api/extract` przekracza 65-sekundowy limit klienta, ekstrakcja modelowa nie jest skonfigurowana, albo coś innego przerwie drugi zapis), sesja utyka trwale w stanie `status:'review'`, `result: null`, `modelResult: null`, bez żadnego automatycznego mechanizmu odzyskiwania.
+
+Ten endpoint uruchamia dokładnie tę samą logikę ekstrakcji co uczestnik przy `finish()`: model językowy, jeśli `OPENAI_API_KEY` jest skonfigurowany (`computeModelExtraction` w `server/agent.ts`, ta sama funkcja co `/api/extract`), w przeciwnym razie deterministyczny `extractWithRules` z `src/domain/extraction.ts`. Nic nie jest fabrykowane pomiędzy tymi dwiema ścieżkami.
+
+Wynik zapisuje przez `service`-rolową funkcję SQL `public.admin_apply_extraction(p_actor_id uuid, p_session_id uuid, p_result jsonb)` (`security definer`, dostępna wyłącznie dla `service_role`), która:
+
+- blokuje wiersz sesji (`for update`) i wymaga `completedAt` ustawionego oraz braku istniejącego `result`,
+- waliduje `p_result` dokładnie tymi samymi regułami co `save_interview` (schemaVersion, sessionId, transkrypt, zgoda, dowody cytujące uczestnika, referencje `evidenceIds`, brak pustych ustaleń),
+- scala `result`/`modelResult`/`revision` w `state` **bez zmiany `status`** — sesja zostaje w `'review'`, żeby tylko uczestnik mógł ją potem potwierdzić przez zwykłą ścieżkę `save_interview`,
+- populuje `extracted_insights`, `pain_points`, `workflows`, `automation_opportunities`, `session_summaries` (z `confirmed_at = null`) tak samo jak `save_interview`,
+- dopisuje wiersz `agent_runs` (`kind='extraction'`, kolejna `version`, `status='completed'`) i wiersz audytu `admin_session_actions` (`action='session.extraction_completed'`) w tej samej transakcji.
+
+| Stan | Kod | Treść błędu |
+| --- | --- | --- |
+| Rozmowa jeszcze nie zakończona (`completedAt` puste) | 409 | `Rozmowa nie jest jeszcze zakończona.` |
+| Wynik ekstrakcji już istnieje | 409 | `Wynik ekstrakcji już istnieje dla tej sesji.` |
+| Ekstrakcja/SQL nie powiodła się | 503 | `Nie udało się zapisać wyniku ekstrakcji.` |
 
 ## Eksport dla kolejnego agenta
 
 Eksport ma postać danych JSON, bez sekretów i bez instrukcji z transkryptu traktowanych jako polecenia. Zawiera tylko: identyfikator i retencję rozmowy, zatwierdzone fakty z ich dowodami, poprawki uczestnika, hipotezy ze statusem niezatwierdzonym, otwarte pytania, granice automatyzacji, konfigurację z jej statusem, ewaluacje z dowodami oraz proponowane następne zadanie. Jeśli raport nie istnieje lub nie jest zatwierdzony, odpowiednie pole ma wartość `null` i lista ograniczeń wyjaśnia brak.
+
+### `unconfirmedDraft` — wgląd w niezatwierdzony wynik
+
+`approvedFacts`, `corrections`, `hypotheses`, `openQuestions`, `humanBoundaries` i `proposedNextTask` pozostają `null`/puste dopóki `status !== 'completed'` — to świadoma zasada produktu: dopóki uczestnik nie potwierdzi każdego ustalenia, nic z raportu nie jest "zatwierdzonym faktem". To zachowanie się nie zmienia.
+
+Jednak gdy `result` istnieje, a `status` to wciąż `'review'` (dokładnie stan po naprawie przez `session-retry-extraction`, zanim uczestnik potwierdzi, albo stan tuż po zwykłym `finish()` przed potwierdzeniem), eksport dodaje pole `unconfirmedDraft` z surowym, nieprzefiltrowanym po `review.status` wynikiem:
+
+```ts
+type UnconfirmedDraft = {
+  painPoints: Finding[]
+  workflows: Array<Finding & { steps: string[] }>
+  tools: Finding[]
+  constraints: Finding[]
+  automationOpportunities: Array<Finding & { linkedPainPointIds: string[]; validationNeeded: string[]; priority: 'explore' | 'next' | 'later' }>
+  recommendedNextStep: { text: string; evidenceIds: string[]; review: Review }
+  unansweredQuestions: string[]
+  extractionMethod: 'evidence-rules' | 'language-model'
+} | null
+```
+
+Gdy `unconfirmedDraft` nie jest `null`, `limitations` zawiera dodatkowy wpis: `Wynik nie został jeszcze potwierdzony przez uczestnika — pola z prefiksem "unconfirmed" nie są zatwierdzonymi faktami.` Pole ma zamierzenie ostrzegawczą nazwę: to draft, nie fakty.
 
 ## Niezmienniki wersjonowania
 

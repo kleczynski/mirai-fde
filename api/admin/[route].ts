@@ -4,7 +4,7 @@
 // this exact consolidation existed once before, then was reverted together
 // with the unrelated Brief Studio revert). This single dynamic function
 // replaces all of them — vercel.json rewrites /api/admin/:route here.
-import { createAdminInvitation, createAdminNote, deleteAdminSession, exportAdminSession, getAdminSession, listAdminInvitations, listAdminSessions } from '../../server/admin.js';
+import { createAdminInvitation, createAdminNote, deleteAdminSession, exportAdminSession, getAdminSession, listAdminInvitations, listAdminSessions, retryAdminExtraction } from '../../server/admin.js';
 import { getHostedDemoDetail, listHostedDemos, markDemoFeedbackHandled, updateHostedDemo } from '../../server/demos.js';
 import { checkAdminVoiceHealth } from '../../server/voice-health.js';
 import { getAdminVoiceTrace } from '../../server/voice-trace.js';
@@ -16,6 +16,7 @@ const routes = new Map([
   ['delete-session', endpoint('POST', deleteAdminSession)],
   ['session-note', endpoint('POST', createAdminNote)],
   ['session-export', endpoint('POST', exportAdminSession)],
+  ['session-retry-extraction', endpoint('POST', retryAdminExtraction)],
   ['session-trace', endpoint('POST', getAdminVoiceTrace)],
   ['voice-health', endpoint('POST', checkAdminVoiceHealth)],
   ['hosted-demos', endpoint('GET', listHostedDemos)],

@@ -2,7 +2,8 @@ import { createClient, type SupabaseClient, type User } from '@supabase/supabase
 import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { SessionSchema, type InterviewSession } from '../src/domain/contract.js';
-import { HttpError, type ApiInput } from './agent.js';
+import { extractWithRules } from '../src/domain/extraction.js';
+import { computeModelExtraction, HttpError, type ApiInput } from './agent.js';
 
 const SessionIdSchema = z.object({ sessionId: z.uuid() });
 const ListSchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(25), cursor: z.uuid().optional() });
@@ -177,11 +178,57 @@ export async function createAdminNote(input: ApiInput) {
   return { operatorNote: data };
 }
 
+/**
+ * Recovers a session stuck in status='review' with completedAt set but no
+ * result/modelResult — the participant's browser closed or crashed between
+ * finish()'s two writes (see server/agent.ts finish()/extractInterview
+ * callers and supabase/migrations/20260922130000_admin_extraction_recovery.sql).
+ * Mirrors the participant's own fallback: model extraction when configured,
+ * otherwise the deterministic rule engine. Never sets status='completed' —
+ * that stays the participant's exclusive action via save_interview.
+ */
+export async function retryAdminExtraction(input: ApiInput): Promise<{ retried: true; method: 'evidence-rules' | 'language-model' }> {
+  const { admin, service } = await requireAdmin(input);
+  const { sessionId } = SessionIdSchema.parse(input.body);
+  const { data, error } = await service.from('interview_sessions').select('state').eq('id', sessionId).maybeSingle();
+  if (error) throw new HttpError(503, 'Nie udało się odczytać sesji.');
+  if (!data) throw new HttpError(404, 'Nie znaleziono sesji.');
+  const session = SessionSchema.parse(data.state);
+  if (!session.completedAt) throw new HttpError(409, 'Rozmowa nie jest jeszcze zakończona.');
+  if (session.result) throw new HttpError(409, 'Wynik ekstrakcji już istnieje dla tej sesji.');
+  const result = process.env.OPENAI_API_KEY ? await computeModelExtraction(session) : extractWithRules(session);
+  const { error: rpcError } = await service.rpc('admin_apply_extraction', {
+    p_actor_id: admin.id,
+    p_session_id: session.id,
+    p_result: result,
+  });
+  if (rpcError) throw new HttpError(503, 'Nie udało się zapisać wyniku ekstrakcji.');
+  return { retried: true, method: result.extraction.method };
+}
+
 export async function exportAdminSession(input: ApiInput) {
   const detail = await getAdminSession(input);
   const confirmed = detail.session.status === 'completed' ? detail.session.result : null;
+  // A result can exist while status is still 'review' — either the
+  // participant has not finished confirming every finding yet, or an admin
+  // just recovered it with retryAdminExtraction. Surface it explicitly as an
+  // unconfirmed draft rather than silently dropping it: approvedFacts and the
+  // rest below stay null/empty until the participant actually confirms,
+  // which remains the only path to status='completed' (save_interview).
+  const draftResult = !confirmed && detail.session.result ? detail.session.result : null;
+  const unconfirmedDraft = draftResult ? {
+    painPoints: draftResult.painPoints,
+    workflows: draftResult.workflows,
+    tools: draftResult.tools,
+    constraints: draftResult.constraints,
+    automationOpportunities: draftResult.automationOpportunities,
+    recommendedNextStep: draftResult.recommendedNextStep,
+    unansweredQuestions: draftResult.unansweredQuestions,
+    extractionMethod: draftResult.extraction.method,
+  } : null;
   const limitations: string[] = [];
   if (!confirmed) limitations.push('Brak zatwierdzonego raportu, więc zatwierdzone fakty nie są dostępne.');
+  if (unconfirmedDraft) limitations.push('Wynik nie został jeszcze potwierdzony przez uczestnika — pola z prefiksem "unconfirmed" nie są zatwierdzonymi faktami.');
   if (!detail.runs.length) limitations.push('Brak zarejestrowanego uruchomienia telemetrycznego.');
   return {
     contextPackageVersion: 'mirai.agent-context.v1',
@@ -191,6 +238,7 @@ export async function exportAdminSession(input: ApiInput) {
     hypotheses: confirmed?.automationOpportunities ?? null,
     openQuestions: confirmed?.unansweredQuestions ?? [],
     humanBoundaries: confirmed?.constraints ?? [],
+    unconfirmedDraft,
     runs: detail.runs,
     evaluations: detail.evaluations,
     operatorNotes: detail.operatorNotes,
