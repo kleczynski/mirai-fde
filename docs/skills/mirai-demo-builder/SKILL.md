@@ -63,17 +63,60 @@ do śledzenia statusu demo — ta jedna, centralna tabela (i `demo_feedback` do
 feedbacku, patrz niżej) to jedyny punkt prawdy, czytany przez panel admina i
 kolejne prompty (`iterate-demo-from-feedback.md`).
 
+## Gdy `automationOpportunities` jest puste albo "następny krok" odradza automatyzację
+
+To NIE jest sygnał, żeby pominąć budowę demo albo zapytać operatora, czy
+kontynuować. Agent discovery prowadzi odkrywanie w czasie rozmowy głosowej,
+nie wymyśla gotowych rozwiązań — pusta lista automatyzacji jest normą w
+większości rozmów, nie oznaką "za mało danych". Bywa też, że agent discovery
+wprost napisze coś w stylu "brak potrzeby automatyzacji" — to najczęściej
+dlatego, że rozmówca robi pracę ekspercką/ocenną (prawo, medycyna, doradztwo,
+audyt, wycena), gdzie faktycznie nie da się bezpiecznie zautomatyzować samej
+decyzji. To nie znaczy, że nic się nie da przyspieszyć.
+
+**Zasada ogólna: automatyzuj to, co dzieje się PRZED oceną ekspercką, nigdy
+samą decyzję/wniosek/osąd.** Człowiek zawsze podejmuje finalną decyzję i
+wysyła wynik. Typowe, bezpieczne kierunki dla pracy eksperckiej:
+
+- **Research/triage przed analizą** — zebranie, ujednolicenie i wstępne
+  posortowanie materiału (dokumentów, orzeczeń, wyników badań, ofert), żeby
+  ekspert czytał mniej i szybciej trafiał na to, co istotne, zamiast żeby
+  narzędzie decydowało za niego.
+- **Strukturyzowane streszczenie źródeł** — dla każdego dokumentu/orzeczenia/
+  wyniku: kluczowe fakty, czego dotyczy, jak wygląda konkluzja — ekspert
+  nadal ocenia trafność i wyciąga finalny wniosek, ale nie czyta wszystkiego
+  od zera.
+- **Pierwszy szkic do przeglądu**, nigdy gotowy, wysyłany automatycznie
+  dokument — jeśli klient ma constraint w stylu "zawsze sam wysyłam" (patrz
+  evidence w prompcie), demo musi to respektować w warstwie produktowej, nie
+  tylko w kodzie: wyraźnie pokazuj, że to szkic do akceptacji, nie gotowy
+  wynik.
+
+Wybierz konkretną, najwęższą realizację jednego z powyższych kierunków na
+podstawie pain pointów i workflow z dowodów w prompcie — te dwie sekcje są
+źródłem prawdy o rzeczywistej trudności, nie puste pole automatyzacji.
+
 ## Krok po kroku (build-and-deploy)
 
 1. **Wybierz JEDNĄ, najwęższą okazję** z dowodów w prompcie — to, co realnie
    rozwiąże nazwany pain point, nie wszystko naraz. Jednym zdaniem uzasadnij
-   wybór i krótko wymień co odrzucasz.
+   wybór i krótko wymień co odrzucasz. Jeśli automatyzacja w prompcie jest
+   pusta, patrz sekcja wyżej — to nie jest powód do pominięcia zadania.
 2. **Zbuduj najlepsze możliwe demo tej jednej rzeczy**, domyślnie na
    bezpiecznych, fikcyjnych danych (przykładowy kalendarz, przykładowe
-   transakcje itd.). Jeśli sensowne demo naprawdę wymaga prawdziwej
-   integracji z kontem klienta (Revolut, Kalendarz Google, PC-Market,
-   cokolwiek) — **to jedyny moment, w którym się zatrzymujesz i pytasz
-   operatora**, zamiast zakładać dostęp.
+   transakcje itd.). **Wyjątek:** jeśli dziedzina ma jawne, publicznie
+   dostępne źródła (np. orzecznictwo sądowe w Polsce, akty prawne, publiczne
+   rejestry) — **preferuj prawdziwe, publiczne dane zamiast w pełni
+   zmyślonego tekstu**, o ile nie wymagają one danych/konta konkretnego
+   klienta. Wyraźnie zmyślony materiał ("tekst napisany na potrzeby demo")
+   podważa wiarygodność demo bardziej niż realne dane by zaszkodziły —
+   klient od razu widzi mechanikę na prawdziwym materiale, nie na oczywistej
+   atrapie. Zweryfikuj samodzielnie, że źródło faktycznie jest publiczne i
+   aktualnie działa (np. sprawdź portal orzeczeń sądów powszechnych) —
+   nie zgaduj URL-a na pamięć. Jeśli sensowne demo naprawdę wymaga
+   prawdziwej integracji z kontem klienta (Revolut, Kalendarz Google,
+   PC-Market, cokolwiek) — **to jedyny moment, w którym się zatrzymujesz i
+   pytasz operatora**, zamiast zakładać dostęp.
 3. **Wdróż na Cloudflare Workers.** Magazyn danych: domyślnie
    **Cloudflare D1 albo KV** (darmowy tier jest szczodrzejszy, nie usypia
    projektu jak Supabase po czasie bezczynności). Sięgnij po Supabase tylko

@@ -24,11 +24,13 @@ kodu i kosztowały realny czas debugowania.
   próbę zmiany pierwotnej ekstrakcji. Ścieżki admina (§3) świadomie to
   omijają dla NIEPOTWIERDZONYCH wyników — potwierdzonych (`confirmed_at`
   w `session_summaries` nie jest `null`) nie da się nadpisać żadną ścieżką.
-- **`status` idzie tylko w jedną stronę do `completed`.** Wyłącznie
+- **`status` idzie do `completed`.** Zwykle
   uczestnik, przez normalny ekran przeglądu, potwierdzając KAŻDY finding
-  (`review.status` = `confirmed`/`corrected`), może przestawić `completed`.
-  Żadna ścieżka admina tego nie robi i nie powinna — to świadoma granica
-  produktu (człowiek w pętli), nie luka do "naprawienia".
+  (`review.status` = `confirmed`/`corrected`), przestawia `completed`.
+  Administrator ma teraz również możliwość potwierdzenia ustaleń w imieniu
+  uczestnika lub zmiany statusu w panelu admina (`admin_confirm_interview_session` /
+  `admin_update_session_status`), co pozwala odblokować sesje (np. Ania Zając)
+  bezpośrednio z poziomu interfejsu.
 
 ## 2. `questionId` i pokrycie tematów — pułapka klasyfikacji
 

@@ -149,12 +149,20 @@ export function AdminControlPlane() {
   const [rows, setRows] = useState<SessionRow[]>([]); const [cursor, setCursor] = useState<string | null>(null); const [cursorHistory, setCursorHistory] = useState<(string | null)[]>([]); const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [invitations, setInvitations] = useState<InvitationRow[]>([]); const [invitationCursor, setInvitationCursor] = useState<string | null>(null); const [nextInvitationCursor, setNextInvitationCursor] = useState<string | null>(null);
   const [invitationLabel, setInvitationLabel] = useState(''); const [invitationIndustry, setInvitationIndustry] = useState(''); const [createdLink, setCreatedLink] = useState('');
-  const [detail, setDetail] = useState<Detail | null>(null); const [trace, setTrace] = useState<VoiceTrace | null>(null); const [loading, setLoading] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [deleteId, setDeleteId] = useState<string | null>(null); const returnFocus = useRef<HTMLButtonElement>(null);
+  const [detail, setDetail] = useState<Detail | null>(null); const [trace, setTrace] = useState<VoiceTrace | null>(null); const [loading, setLoading] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState('');
+  const [deleteSession, setDeleteSession] = useState<{ id: string; label: string } | null>(null);
+  const [deleteInvitation, setDeleteInvitation] = useState<{ id: string; label: string } | null>(null);
+  const returnFocus = useRef<HTMLButtonElement>(null);
   const accessError = (value: unknown) => { const e = value as AdminError; if (e.status === 401) { setAccess('expired'); return; } if (e.status === 403) { setAccess('forbidden'); return; } setError(e instanceof Error ? e.message : 'Nie udało się otworzyć panelu.'); };
   const refresh = async (target = cursor) => { setLoading(true); setError(''); try { const query = target ? `?limit=25&cursor=${encodeURIComponent(target)}` : '?limit=25'; const payload = await request(`/api/admin/sessions${query}`) as { items?: SessionRow[]; sessions?: SessionRow[]; nextCursor?: string | null }; setRows(payload.items ?? payload.sessions ?? []); setCursor(target); setNextCursor(payload.nextCursor ?? null); } catch (e) { accessError(e); } finally { setLoading(false); } };
   const refreshInvitations = async (target: string | null = null) => { try { const query = target ? `?limit=25&cursor=${encodeURIComponent(target)}` : '?limit=25'; const payload = await request(`/api/admin/invitations${query}`) as { invitations: InvitationRow[]; nextCursor: string | null }; setInvitations(payload.invitations); setInvitationCursor(target); setNextInvitationCursor(payload.nextCursor); } catch (e) { accessError(e); } };
   useEffect(() => { if (!supabase) { setError('Panel administracyjny wymaga skonfigurowanego Supabase.'); setAccess('anonymous'); return; } supabase.auth.getSession().then(async ({ data }) => { if (!data.session) { setAccess('anonymous'); return; } setAccess('authorized'); await Promise.all([refresh(null), refreshInvitations(null)]); }).catch(accessError); }, []);
-  useEffect(() => { if (!deleteId) return; const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setDeleteId(null); }; window.addEventListener('keydown', close); return () => window.removeEventListener('keydown', close); }, [deleteId]);
+  useEffect(() => {
+    if (!deleteSession && !deleteInvitation) return;
+    const closeKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { setDeleteSession(null); setDeleteInvitation(null); } };
+    window.addEventListener('keydown', closeKey);
+    return () => window.removeEventListener('keydown', closeKey);
+  }, [deleteSession, deleteInvitation]);
   const login = async () => { if (!supabase) return; setBusy(true); setError(''); try { const { error: signInError } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: `${window.location.origin}/admin`, ...(getCaptchaToken() ? { captchaToken: getCaptchaToken()! } : {}) } }); if (signInError) throw signInError; setNotice('Wysłaliśmy bezpieczny link logowania. Otwórz go w tej przeglądarce.'); } catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się wysłać linku.'); } finally { setBusy(false); } };
   const open = async (id: string, trigger: HTMLButtonElement) => { returnFocus.current = trigger; setBusy(true); setError(''); setTrace(null); setSessionView('summary'); try { const payload = await request('/api/admin/session', 'POST', { sessionId: id }); setDetail(payload as unknown as Detail); } catch (e) { accessError(e); } finally { setBusy(false); } };
   const close = () => { setDetail(null); setTrace(null); queueMicrotask(() => returnFocus.current?.focus()); };
@@ -174,7 +182,69 @@ export function AdminControlPlane() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się wygenerować promptu demo.'); }
     finally { setBusy(false); }
   };
-  const remove = async () => { if (!deleteId) return; setBusy(true); try { await request('/api/admin/delete-session', 'POST', { sessionId: deleteId }); if (detail?.session.id === deleteId) close(); setDeleteId(null); setNotice('Sesja i jej dane potomne zostały usunięte.'); await refresh(); } catch (e) { accessError(e); } finally { setBusy(false); } };
+  const removeSession = async () => {
+    if (!deleteSession) return;
+    setBusy(true);
+    try {
+      await request('/api/admin/delete-session', 'POST', { sessionId: deleteSession.id });
+      if (detail?.session.id === deleteSession.id) close();
+      setDeleteSession(null);
+      setNotice('Sesja i jej dane potomne zostały usunięte.');
+      await refresh();
+    } catch (e) {
+      accessError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const removeInvitation = async () => {
+    if (!deleteInvitation) return;
+    setBusy(true);
+    try {
+      await request('/api/admin/delete-invitation', 'POST', { invitationId: deleteInvitation.id });
+      setDeleteInvitation(null);
+      setNotice('Zaproszenie zostało usunięte.');
+      await refreshInvitations(invitationCursor);
+    } catch (e) {
+      accessError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const confirmSession = async () => {
+    if (!detail) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await request('/api/admin/session-confirm', 'POST', { sessionId: detail.session.id });
+      const payload = await request('/api/admin/session', 'POST', { sessionId: detail.session.id });
+      setDetail(payload as unknown as Detail);
+      setNotice('Ustalenia zostały zatwierdzone. Stan rozmowy został zmieniony na „Zakończona”.');
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Nie udało się potwierdzić rozmowy.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const changeSessionStatus = async (status: InterviewSession['status']) => {
+    if (!detail) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await request('/api/admin/session-status', 'POST', { sessionId: detail.session.id, status });
+      const payload = await request('/api/admin/session', 'POST', { sessionId: detail.session.id });
+      setDetail(payload as unknown as Detail);
+      setNotice(`Status rozmowy został zmieniony na „${SESSION_STATUS_LABELS[status]}”.`);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Nie udało się zmienić statusu.');
+    } finally {
+      setBusy(false);
+    }
+  };
   const retryExtraction = async () => {
     if (!detail) return; setBusy(true); setError(''); setNotice('');
     try {
@@ -191,7 +261,39 @@ export function AdminControlPlane() {
   const evaluation = detail?.evaluations?.[0];
   const invitedRows = rows.filter(row => row.invitation);
   const publicRows = rows.filter(row => !row.invitation);
-  const renderRow = (row: SessionRow) => <button key={row.id} disabled={busy} ref={detail?.session.id === row.id ? returnFocus : undefined} className={detail?.session.id === row.id ? 'admin-row selected' : 'admin-row'} onClick={event => void open(row.id, event.currentTarget)}><span><strong>{row.invitation?.label ?? row.focusSummary ?? 'Brak nazwanego obszaru'}</strong><small>{row.invitation?.industry ? `${row.invitation.industry} · ` : ''}{date(row.startedAt)} · {SESSION_MODE_LABELS[row.mode]} · wypowiedzi: {row.turnCount}</small></span><span className={`admin-status ${row.status}`}>{SESSION_STATUS_LABELS[row.status]}</span></button>;
+  const currentSessionLabel = detail ? (rows.find(row => row.id === detail.session.id)?.invitation?.label || rows.find(row => row.id === detail.session.id)?.focusSummary || 'Przebieg rozmowy') : '';
+  const renderRow = (row: SessionRow) => {
+    const label = row.invitation?.label ?? row.focusSummary ?? 'Rozmowa bez nazwy';
+    return (
+      <div key={row.id} className="admin-row-wrapper">
+        <button
+          disabled={busy}
+          ref={detail?.session.id === row.id ? returnFocus : undefined}
+          className={detail?.session.id === row.id ? 'admin-row selected' : 'admin-row'}
+          onClick={event => void open(row.id, event.currentTarget)}
+        >
+          <span>
+            <strong>{row.invitation?.label ?? row.focusSummary ?? 'Brak nazwanego obszaru'}</strong>
+            <small>{row.invitation?.industry ? `${row.invitation.industry} · ` : ''}{date(row.startedAt)} · {SESSION_MODE_LABELS[row.mode]} · wypowiedzi: {row.turnCount}</small>
+          </span>
+          <span className={`admin-status ${row.status}`}>{SESSION_STATUS_LABELS[row.status]}</span>
+        </button>
+        <button
+          type="button"
+          className="icon-button danger admin-row-delete"
+          aria-label={`Usuń rozmowę: ${label}`}
+          title="Usuń rozmowę"
+          disabled={busy}
+          onClick={e => {
+            e.stopPropagation();
+            setDeleteSession({ id: row.id, label });
+          }}
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
+    );
+  };
   return <main className="admin-shell">
     <header className="admin-header">
       <div><span className="section-label">Mirai control plane</span><h1>Panel Mirai</h1><p>Rozmowy, demo i kolejne kroki z klientami.</p></div>
@@ -208,7 +310,29 @@ export function AdminControlPlane() {
         <button className="primary-button" type="submit" disabled={busy || !invitationLabel.trim()}>Utwórz link <ChevronRight size={16}/></button>
       </form>
       {createdLink && <div className="admin-created-link" role="status"><strong>Link gotowy do wysłania</strong><p>Skopiuj go teraz. Ze względów bezpieczeństwa panel nie pokaże go ponownie.</p><div><input readOnly aria-label="Nowy link zaproszenia" value={createdLink} onFocus={event => event.target.select()}/><button className="outline-button" onClick={() => void navigator.clipboard.writeText(createdLink).then(() => setNotice('Link skopiowany do schowka.')).catch(() => setError('Nie udało się skopiować automatycznie. Zaznacz i skopiuj link z pola.'))}>Kopiuj link</button></div></div>}
-      <div className="admin-invitation-list"><h3>Utworzone zaproszenia</h3>{invitations.length === 0 ? <p>Nie ma jeszcze zaproszeń.</p> : invitations.map(invitation => <article key={invitation.id}><div><strong>{invitation.label}</strong><small>{invitation.industry || 'Branża niepodana'} · utworzono {date(invitation.created_at)}</small></div><span className={invitation.claimed_at ? 'admin-invitation-state claimed' : 'admin-invitation-state'}>{invitation.claimed_at ? 'Rozmowa rozpoczęta' : new Date(invitation.expires_at).getTime() <= Date.now() ? 'Link wygasł' : 'Czeka na użycie'}</span></article>)}
+      <div className="admin-invitation-list"><h3>Utworzone zaproszenia</h3>{invitations.length === 0 ? <p>Nie ma jeszcze zaproszeń.</p> : invitations.map(invitation => (
+        <article key={invitation.id}>
+          <div>
+            <strong>{invitation.label}</strong>
+            <small>{invitation.industry || 'Branża niepodana'} · utworzono {date(invitation.created_at)}</small>
+          </div>
+          <div className="admin-invitation-actions">
+            <span className={invitation.claimed_at ? 'admin-invitation-state claimed' : 'admin-invitation-state'}>
+              {invitation.claimed_at ? 'Rozmowa rozpoczęta' : new Date(invitation.expires_at).getTime() <= Date.now() ? 'Link wygasł' : 'Czeka na użycie'}
+            </span>
+            <button
+              type="button"
+              className="icon-button danger"
+              aria-label={`Usuń zaproszenie: ${invitation.label}`}
+              title="Usuń zaproszenie"
+              disabled={busy}
+              onClick={() => setDeleteInvitation({ id: invitation.id, label: invitation.label })}
+            >
+              <Trash2 size={15}/>
+            </button>
+          </div>
+        </article>
+      ))}
         <nav className="admin-pagination" aria-label="Strony zaproszeń"><button className="text-button" disabled={!invitationCursor} onClick={() => void refreshInvitations(null)}><ChevronLeft size={15}/> Pierwsza strona</button><button className="text-button" disabled={!nextInvitationCursor} onClick={() => void refreshInvitations(nextInvitationCursor)}>Następna <ChevronRight size={15}/></button></nav>
       </div>
     </section>
@@ -224,21 +348,95 @@ export function AdminControlPlane() {
       </div>
       <div className="admin-detail">{detail ? <>
         <button className="text-button" onClick={close}><ChevronLeft size={15}/> Wszystkie rozmowy</button>
-        <h2>{rows.find(row => row.id === detail.session.id)?.invitation?.label || rows.find(row => row.id === detail.session.id)?.focusSummary || 'Przebieg rozmowy'}</h2>
-        <p className="admin-meta">{detail.session.mode === 'voice' ? 'Rozmowa głosowa' : detail.session.mode === 'demo' ? 'Rozmowa demonstracyjna' : 'Rozmowa tekstowa'} · {date(detail.session.startedAt)} · {detail.session.turns.length} wypowiedzi</p>
+        <div className="admin-detail-heading">
+          <div>
+            <h2>{currentSessionLabel}</h2>
+            <p className="admin-meta">{detail.session.mode === 'voice' ? 'Rozmowa głosowa' : detail.session.mode === 'demo' ? 'Rozmowa demonstracyjna' : 'Rozmowa tekstowa'} · {date(detail.session.startedAt)} · {detail.session.turns.length} wypowiedzi</p>
+          </div>
+          <div className="admin-detail-heading-actions">
+            <span className={`admin-status ${detail.session.status}`}>{SESSION_STATUS_LABELS[detail.session.status]}</span>
+            <button
+              type="button"
+              className="icon-button danger"
+              aria-label={`Usuń tę rozmowę: ${currentSessionLabel}`}
+              title="Usuń tę rozmowę"
+              disabled={busy}
+              onClick={() => setDeleteSession({ id: detail.session.id, label: currentSessionLabel })}
+            >
+              <Trash2 size={16}/>
+            </button>
+          </div>
+        </div>
         <nav className="admin-session-navigation" aria-label="Widok rozmowy">{([['summary', 'Podsumowanie'], ['transcript', 'Transkrypcja'], ['diagnostics', 'Diagnostyka']] as const).map(([id, label]) => <button key={id} aria-current={sessionView === id ? 'page' : undefined} onClick={() => setSessionView(id)}>{label}</button>)}</nav>
-        {sessionView === 'summary' && <><Report title="Podsumowanie rozmowy" report={detail.session.result}/><div className="admin-detail-actions"><button className="outline-button" disabled={busy} onClick={() => void exportPackage()}><Download size={16}/> Eksport paczki</button>{detail.session.completedAt && detail.session.result && <button className="outline-button" disabled={busy} onClick={() => void generateDemoPrompt()}><Download size={16}/> Wygeneruj prompt demo</button>}</div></>}
+        {sessionView === 'summary' && <>
+          <Report title="Podsumowanie rozmowy" report={detail.session.result}/>
+          <div className="admin-detail-actions">
+            {detail.session.status === 'review' && detail.session.result && (
+              <button className="primary-button" disabled={busy} onClick={() => void confirmSession()}>
+                <CheckCircle2 size={16}/> Potwierdź ustalenia (oznacz jako zakończona)
+              </button>
+            )}
+            {detail.session.status === 'completed' && (
+              <button className="outline-button" disabled={busy} onClick={() => void changeSessionStatus('review')}>
+                Cofnij do weryfikacji
+              </button>
+            )}
+            <button className="outline-button" disabled={busy} onClick={() => void exportPackage()}><Download size={16}/> Eksport paczki</button>
+            {detail.session.completedAt && detail.session.result && <button className="outline-button" disabled={busy} onClick={() => void generateDemoPrompt()}><Download size={16}/> Wygeneruj prompt demo</button>}
+            <button className="danger-button" disabled={busy} onClick={() => setDeleteSession({ id: detail.session.id, label: currentSessionLabel })}>
+              <Trash2 size={16}/> Usuń sesję
+            </button>
+          </div>
+        </>}
         <div hidden={sessionView !== 'transcript'}><Transcript key={detail.session.id} turns={detail.session.turns} evaluation={evaluation} notes={detail.operatorNotes ?? []} onNote={(turnId, label, note) => void saveNote(turnId, label, note)}/></div>
         {sessionView === 'diagnostics' && <>
+          <section className="admin-card">
+            <h3>Zarządzanie stanem rozmowy</h3>
+            <p>Aktualny status: <strong>{SESSION_STATUS_LABELS[detail.session.status]}</strong>{detail.confirmedAt ? ` · potwierdzono: ${date(detail.confirmedAt)}` : ' · brak zatwierdzenia'}.</p>
+            <div className="admin-status-control">
+              <label>
+                Zmień status:
+                <select
+                  value={detail.session.status}
+                  disabled={busy}
+                  onChange={e => void changeSessionStatus(e.target.value as InterviewSession['status'])}
+                >
+                  <option value="review">Do potwierdzenia (review)</option>
+                  <option value="completed">Zakończona (completed)</option>
+                  <option value="active">W toku (active)</option>
+                  <option value="paused">Wstrzymana (paused)</option>
+                </select>
+              </label>
+            </div>
+          </section>
           {detail.session.completedAt && !detail.session.result && <section className="admin-card"><h3>Ekstrakcja utknęła</h3><p>Rozmowa jest zakończona, ale nigdy nie powstał wynik ekstrakcji (np. przez zamknięte okno przeglądarki). Uruchom ją teraz — sesja zostanie w stanie „Do potwierdzenia”, tak aby uczestnik mógł ją później potwierdzić.</p><button className="primary-button" disabled={busy} onClick={() => void retryExtraction()}><RefreshCw size={16}/> {busy ? 'Uruchamiam ekstrakcję…' : 'Uruchom ekstrakcję'}</button></section>}
           {detail.session.completedAt && detail.session.result && !detail.confirmedAt && <section className="admin-card"><h3>Wynik jest wersją roboczą</h3><p>Ten wynik ({detail.session.result.extraction.method === 'language-model' ? 'model językowy' : 'reguły deterministyczne'}) nie został jeszcze potwierdzony przez uczestnika, więc można go bezpiecznie zastąpić lepszą ekstrakcją bez utraty niczego zatwierdzonego. Przydaje się to zwłaszcza po regułowym fallbacku, który pomija część przebiegu pracy zapisaną poza kategoriami pytań (workflows: {detail.session.result.workflows.length}, tools: {detail.session.result.tools.length}).</p><button className="outline-button" disabled={busy} onClick={() => void retryExtraction()}><RefreshCw size={16}/> {busy ? 'Poprawiam ekstrakcję…' : 'Popraw ekstrakcję'}</button></section>}
           <section className="admin-card"><h3>Ocena jakości</h3>{evaluation ? <><p>Wersja oceny: {evaluation.evaluatorVersion}, wynik {evaluation.status}, wejściowe tury: {evaluation.inputTurnIds.length}.</p>{evaluation.signals.length ? <ul>{evaluation.signals.map(signal => <li key={signal.code + signal.turnIds.join()}>{signal.code}: {signal.evidence.join(' ') || 'brak cytatu dowodowego'}{signal.limitation ? ' (' + signal.limitation + ')' : ''}</li>)}</ul> : <p>Ocena nie zawiera flag.</p>}</> : <p>Brak wersjonowanej oceny semantycznej.</p>}</section>
           <details className="admin-technical"><summary>Oryginalny wynik ekstrakcji</summary><Report title="Wynik modelu" report={detail.session.modelResult}/></details>
           <Runs runs={detail.runs} onTrace={runId => void loadTrace(runId)} busy={busy}/>{trace && <Trace trace={trace}/>}
-          <details className="admin-technical"><summary>Dane sesji i zarządzanie</summary><p className="admin-meta">ID: {detail.session.id}<br/>Wygasa: {date(detail.session.expiresAt)}</p><div className="admin-detail-actions"><button className="text-button" onClick={() => void checkVoice()} disabled={busy || loading}>Sprawdź ElevenLabs</button><button className="danger-button" disabled={busy} onClick={() => setDeleteId(detail.session.id)}><Trash2 size={16}/> Usuń sesję</button></div></details>
+          <details className="admin-technical"><summary>Dane sesji i zarządzanie</summary><p className="admin-meta">ID: {detail.session.id}<br/>Wygasa: {date(detail.session.expiresAt)}</p><div className="admin-detail-actions"><button className="text-button" onClick={() => void checkVoice()} disabled={busy || loading}>Sprawdź ElevenLabs</button><button className="danger-button" disabled={busy} onClick={() => setDeleteSession({ id: detail.session.id, label: currentSessionLabel })}><Trash2 size={16}/> Usuń sesję</button></div></details>
         </>}
       </> : <p>Wybierz rozmowę, aby zobaczyć raport, transkrypcję i dane monitoringu.</p>}</div>
     </section>
-    {deleteId && <div className="admin-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-title"><div><h2 id="delete-title">Usunąć sesję?</h2><p>Usuniemy transkrypcję, podsumowania oraz artefakty potomne. Ta operacja jest nieodwracalna.</p><button className="outline-button" autoFocus disabled={busy} onClick={() => setDeleteId(null)}>Zachowaj</button><button className="danger-button" disabled={busy} onClick={() => void remove()}>Usuń trwale</button></div></div>}
+    {deleteSession && (
+      <div className="admin-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-session-title">
+        <div>
+          <h2 id="delete-session-title">Usunąć rozmowę?</h2>
+          <p>Usuniemy rozmowę <strong>{deleteSession.label}</strong>, transkrypcję, podsumowania oraz artefakty potomne. Ta operacja jest nieodwracalna.</p>
+          <button className="outline-button" autoFocus disabled={busy} onClick={() => setDeleteSession(null)}>Zachowaj</button>
+          <button className="danger-button" disabled={busy} onClick={() => void removeSession()}>Usuń trwale</button>
+        </div>
+      </div>
+    )}
+    {deleteInvitation && (
+      <div className="admin-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-invitation-title">
+        <div>
+          <h2 id="delete-invitation-title">Usunąć zaproszenie?</h2>
+          <p>Usuniemy zaproszenie dla <strong>{deleteInvitation.label}</strong>. Link zaproszenia przestanie działać. Ta operacja jest nieodwracalna.</p>
+          <button className="outline-button" autoFocus disabled={busy} onClick={() => setDeleteInvitation(null)}>Zachowaj</button>
+          <button className="danger-button" disabled={busy} onClick={() => void removeInvitation()}>Usuń trwale</button>
+        </div>
+      </div>
+    )}
   </main>;
 }

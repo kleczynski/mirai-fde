@@ -1,12 +1,14 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
-import { SessionSchema, type InterviewSession } from '../src/domain/contract.js';
+import { DiscoverySchema, SessionSchema, type DiscoveryResult, type Finding, type InterviewSession } from '../src/domain/contract.js';
 import { extractWithRules } from '../src/domain/extraction.js';
 import { computeModelExtraction, HttpError, type ApiInput } from './agent.js';
 import { buildDemoPrompt } from './demo-prompt.js';
 
 const SessionIdSchema = z.object({ sessionId: z.uuid() });
+const InvitationIdSchema = z.object({ invitationId: z.uuid() });
+const SessionStatusSchema = z.object({ sessionId: z.uuid(), status: z.enum(['active', 'paused', 'review', 'completed']) });
 const ListSchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(25), cursor: z.uuid().optional() });
 const NoteSchema = z.object({
   sessionId: z.uuid(), turnId: z.uuid().nullable().optional(),
@@ -289,4 +291,71 @@ export async function deleteAdminSession(input: ApiInput): Promise<{ deleted: tr
   if (error) throw new HttpError(503, 'Nie udało się usunąć sesji.');
   if (!deleted) throw new HttpError(404, 'Nie znaleziono sesji.');
   return { deleted: true };
+}
+
+export async function deleteAdminInvitation(input: ApiInput): Promise<{ deleted: true }> {
+  const { admin, service } = await requireAdmin(input);
+  const { invitationId } = InvitationIdSchema.parse(input.body);
+  const { data: deleted, error } = await service.rpc('admin_delete_interview_invitation', {
+    p_actor_id: admin.id,
+    p_invitation_id: invitationId,
+  });
+  if (error) throw new HttpError(503, 'Nie udało się usunąć zaproszenia.');
+  if (!deleted) throw new HttpError(404, 'Nie znaleziono zaproszenia.');
+  return { deleted: true };
+}
+
+export async function confirmAdminSession(input: ApiInput): Promise<{ confirmed: true; status: 'completed' }> {
+  const { admin, service } = await requireAdmin(input);
+  const { sessionId } = SessionIdSchema.parse(input.body);
+  const { data, error } = await service.from('interview_sessions').select('state').eq('id', sessionId).maybeSingle();
+  if (error) throw new HttpError(503, 'Nie udało się odczytać sesji.');
+  if (!data) throw new HttpError(404, 'Nie znaleziono sesji.');
+  const session = SessionSchema.parse(data.state);
+  if (!session.completedAt) throw new HttpError(409, 'Rozmowa nie jest jeszcze zakończona.');
+  if (!session.result) throw new HttpError(409, 'Brak wyniku ekstrakcji dla tej sesji — najpierw uruchom ekstrakcję.');
+
+  const now = new Date().toISOString();
+  const updatedResult = structuredClone(session.result);
+  const groups: Array<keyof DiscoveryResult> = ['participantContext', 'painPoints', 'workflows', 'tools', 'constraints', 'automationOpportunities'];
+  for (const key of groups) {
+    const list = updatedResult[key];
+    if (Array.isArray(list)) {
+      for (const item of list as Finding[]) {
+        if (item.review.status === 'unreviewed') {
+          item.review.status = 'confirmed';
+          item.review.reviewedAt = now;
+        }
+      }
+    }
+  }
+  if (updatedResult.recommendedNextStep?.review?.status === 'unreviewed') {
+    updatedResult.recommendedNextStep.review.status = 'confirmed';
+    updatedResult.recommendedNextStep.review.reviewedAt = now;
+  }
+
+  const validated = DiscoverySchema.parse(updatedResult);
+  const { error: rpcError } = await service.rpc('admin_confirm_interview_session', {
+    p_actor_id: admin.id,
+    p_session_id: session.id,
+    p_result: validated,
+  });
+  if (rpcError) throw new HttpError(503, 'Nie udało się zapisać potwierdzenia sesji.');
+  return { confirmed: true, status: 'completed' };
+}
+
+export async function updateAdminSessionStatus(input: ApiInput): Promise<{ status: InterviewSession['status'] }> {
+  const { admin, service } = await requireAdmin(input);
+  const { sessionId, status } = SessionStatusSchema.parse(input.body);
+  if (status === 'completed') {
+    await confirmAdminSession(input);
+    return { status: 'completed' };
+  }
+  const { error: rpcError } = await service.rpc('admin_update_session_status', {
+    p_actor_id: admin.id,
+    p_session_id: sessionId,
+    p_status: status,
+  });
+  if (rpcError) throw new HttpError(503, 'Nie udało się zaktualizować statusu sesji.');
+  return { status };
 }

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { createVoiceSession, extractInterview, getRuntimeConfig, HttpError, recordVoiceTelemetry } from './agent.js';
-import { createAdminInvitation, createAdminNote, deleteAdminSession, exportAdminSession, generateAdminDemoPrompt, getAdminSession, listAdminInvitations, listAdminSessions, retryAdminExtraction } from './admin.js';
+import { confirmAdminSession, createAdminInvitation, createAdminNote, deleteAdminInvitation, deleteAdminSession, exportAdminSession, generateAdminDemoPrompt, getAdminSession, listAdminInvitations, listAdminSessions, retryAdminExtraction, updateAdminSessionStatus } from './admin.js';
 import { getHostedDemoDetail, listHostedDemos, markDemoFeedbackHandled, submitDemoFeedback, updateHostedDemo } from './demos.js';
 import { getAdminVoiceTrace } from './voice-trace.js';
 import { checkAdminVoiceHealth } from './voice-health.js';
@@ -31,11 +31,20 @@ app.get('/api/admin/invitations', async (req, res) => {
 app.post('/api/admin/invitations', async (req, res) => {
   res.json(await createAdminInvitation({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
 });
+app.post('/api/admin/delete-invitation', async (req, res) => {
+  res.json(await deleteAdminInvitation({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
+});
 app.post('/api/admin/session', async (req, res) => {
   res.json(await getAdminSession({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
 });
 app.post('/api/admin/delete-session', async (req, res) => {
   res.json(await deleteAdminSession({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
+});
+app.post('/api/admin/session-confirm', async (req, res) => {
+  res.json(await confirmAdminSession({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
+});
+app.post('/api/admin/session-status', async (req, res) => {
+  res.json(await updateAdminSessionStatus({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));
 });
 app.post('/api/admin/session-note', async (req, res) => {
   res.json(await createAdminNote({ authorization: req.headers.authorization, body: req.body, clientIp: req.ip }));

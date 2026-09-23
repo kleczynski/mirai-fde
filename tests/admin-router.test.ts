@@ -10,7 +10,7 @@ async function request(path: string, method: string) {
 }
 
 describe('shared admin deployment adapter', () => {
-  const postRoutes = ['session', 'delete-session', 'session-note', 'session-export', 'session-retry-extraction', 'session-demo-prompt', 'session-trace', 'voice-health', 'invitations', 'hosted-demo-detail', 'hosted-demo-update', 'hosted-demo-feedback-handled'];
+  const postRoutes = ['session', 'delete-session', 'delete-invitation', 'session-confirm', 'session-status', 'session-note', 'session-export', 'session-retry-extraction', 'session-demo-prompt', 'session-trace', 'voice-health', 'invitations', 'hosted-demo-detail', 'hosted-demo-update', 'hosted-demo-feedback-handled'];
   const getRoutes = ['sessions', 'invitations', 'hosted-demos'];
 
   it.each(postRoutes)('requires authorization for POST %s', async route => {

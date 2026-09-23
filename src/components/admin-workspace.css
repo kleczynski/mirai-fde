@@ -92,3 +92,14 @@
 .admin-evidence summary{cursor:pointer;font-size:10px;padding:3px 0}
 .admin-shell:not(.admin-login){padding-top:48px}
 @media(max-width:700px){.admin-shell:not(.admin-login){padding-top:30px}}
+.admin-row-wrapper{display:flex;align-items:center;gap:6px;margin-bottom:7px;width:100%}
+.admin-row-wrapper .admin-row{margin-bottom:0;flex:1}
+.admin-row-delete{opacity:.6;transition:opacity .2s,background .2s,color .2s;flex-shrink:0}
+.admin-row-wrapper:hover .admin-row-delete{opacity:1}
+.icon-button.danger{color:#884d40}
+.icon-button.danger:hover{background:#f8ece9;color:#aa3a2b}
+.admin-detail-heading-actions{display:flex;align-items:center;gap:10px}
+.admin-status-control{margin:12px 0 0}
+.admin-status-control label{display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--muted)}
+.admin-status-control select{max-width:260px}
+.admin-invitation-actions{display:flex;align-items:center;gap:12px}

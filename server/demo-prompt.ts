@@ -6,6 +6,21 @@ import { HttpError } from './agent.js';
 
 const list = (items: Finding[]) => items.length ? items.map(f => `- ${f.text}`).join('\n') : '(brak — pomiń tę sekcję w prompcie albo zapytaj operatora, czy to na pewno wystarczy)';
 
+/**
+ * `automationOpportunities` jest puste w większości rozmów z założenia —
+ * agent discovery ma prowadzić odkrywanie, nie wymyślać gotowe rozwiązanie
+ * (patrz AGENTS.md §2/§9). Pusta lista tu to norma, nie sygnał "za mało
+ * danych, może przerwij" — dlatego NIE używa generycznego fallbacku `list()`
+ * powyżej, który dla tej jednej sekcji zachęcałby agenta budującego demo do
+ * pominięcia zadania albo pytania operatora zamiast samodzielnego wyboru
+ * okazji na podstawie painPoints/workflows (patrz punkt 1 w sekcji "Zadanie"
+ * szablonu i sekcja o pustej automatyzacji w
+ * docs/skills/mirai-demo-builder/SKILL.md).
+ */
+const automationOpportunitiesList = (items: Finding[]) => items.length
+  ? items.map(f => `- ${f.text}`).join('\n')
+  : '(puste — to normalne, agent discovery nie musi znaleźć gotowej okazji podczas samej rozmowy. NIE traktuj tego jako sygnału, że nie ma czego budować — wybierz i uzasadnij najwęższą okazję sam na podstawie pain pointów i workflow wyżej, patrz punkt 1 w sekcji "Zadanie" niżej.)';
+
 const slugify = (label: string) => label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'demo';
 
 /**
@@ -70,7 +85,7 @@ export async function buildDemoPrompt(service: SupabaseClient<any>, sessionId: s
     .replace(/\{\{PAIN_POINTS\}\}/g, list(result.painPoints))
     .replace(/\{\{TOOLS\}\}/g, list(result.tools))
     .replace(/\{\{CONSTRAINTS\}\}/g, list(result.constraints))
-    .replace(/\{\{AUTOMATION_OPPORTUNITIES\}\}/g, list(result.automationOpportunities))
+    .replace(/\{\{AUTOMATION_OPPORTUNITIES\}\}/g, automationOpportunitiesList(result.automationOpportunities))
     .replace(/\{\{RECOMMENDED_NEXT_STEP\}\}/g, result.recommendedNextStep.text || '(brak)');
 
   return { demoId, filled, confirmed, reused };
